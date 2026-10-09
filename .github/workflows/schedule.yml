@@ -1,0 +1,48 @@
+name: Обновление расписания из ВК
+
+on:
+  schedule:
+    - cron: '*/20 * * * *'   # каждые 20 минут (GitHub может запускать с задержкой)
+  workflow_dispatch:          # ручной запуск кнопкой «Run workflow»
+
+permissions:
+  contents: write
+
+concurrency:
+  group: schedule-update
+  cancel-in-progress: false
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Установка зависимостей
+        run: pip install -r agent/requirements.txt
+
+      - name: Запуск агента
+        env:
+          VK_TOKEN: ${{ secrets.VK_TOKEN }}
+          VK_GROUP_ID: ${{ vars.VK_GROUP_ID }}
+          GROUP_NAME: ${{ vars.GROUP_NAME }}
+          DOC_PATTERN: ${{ vars.DOC_PATTERN }}
+          WALL_TAG: ${{ vars.WALL_TAG }}
+        run: python agent/vk_agent.py
+
+      - name: Сохранить изменения
+        run: |
+          git config user.name "schedule-bot"
+          git config user.email "schedule-bot@users.noreply.github.com"
+          git add docs/data
+          if git diff --cached --quiet; then
+            echo "Изменений нет"
+          else
+            git commit -m "Обновление расписания из ВК"
+            git pull --rebase --autostash origin "${GITHUB_REF_NAME}"
+            git push origin "HEAD:${GITHUB_REF_NAME}"
+          fi
