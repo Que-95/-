@@ -1,0 +1,1028 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Расписание занятий</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link href="https://fonts.googleapis.com/css2?family=Jura:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script id="tw-config">
+tailwind.config = { theme: { extend: { fontFamily: { head: ['Jura','Segoe UI','sans-serif'], mono: ['"IBM Plex Mono"','Consolas','monospace'] } } } }
+</script>
+<style id="css">
+:root{--bg:#cdc8b0;--panel:#dad4bb;--tabhov:#c4bea5;--ink:#4e4b42;--inkhov:#38352e;--on:#dad4bb;--mut:#6f6b5d;--muti:#b9b39a;--hatch:rgba(78,75,66,.05);--err:#8a2f22;
+  box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+:root[data-theme="night"]{--bg:#2b2924;--panel:#38352e;--tabhov:#45413a;--ink:#d6d0b8;--inkhov:#ebe5cc;--on:#2b2924;--mut:#9a957f;--muti:#6f6b5d;--hatch:rgba(214,208,184,.045);--err:#e08a78}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+html,body{min-height:100%}
+body{background-color:var(--bg);background-image:repeating-linear-gradient(135deg,var(--hatch) 0 1px,transparent 1px 5px);color:var(--ink);font-family:'Jura','Segoe UI',sans-serif;transition:background-color .3s,color .3s;-webkit-tap-highlight-color:transparent}
+.cut{clip-path:polygon(0 0,calc(100% - 14px) 0,100% 14px,100% 100%,14px 100%,0 calc(100% - 14px))}
+.cut-sm{clip-path:polygon(0 0,calc(100% - 8px) 0,100% 8px,100% 100%,8px 100%,0 calc(100% - 8px))}
+.rule{height:1px;background:var(--ink)}.rule2{height:1px;background:var(--ink);opacity:.4;margin-top:3px}
+.muted{color:var(--mut)}
+.panel{background:var(--panel)}
+.btn{background:var(--ink);color:var(--on);font-family:'IBM Plex Mono',monospace;font-size:.8rem;padding:.5rem .9rem;transition:background .15s;cursor:pointer;display:inline-block}
+.btn:hover:not(:disabled){background:var(--inkhov)}
+.btn:disabled{opacity:.35;cursor:not-allowed}
+.btn-o{background:transparent;color:var(--ink);box-shadow:inset 0 0 0 1px var(--ink)}
+.btn-o:hover:not(:disabled){background:var(--ink);color:var(--on)}
+.seg{background:var(--panel);color:var(--ink);padding:.55rem 1.1rem;font-weight:700;letter-spacing:.06em;transition:background .15s,color .15s;cursor:pointer}
+.seg:hover{background:var(--tabhov)}
+.seg[aria-pressed="true"]{background:var(--ink);color:var(--on)}
+.tab{position:relative;background:var(--panel);color:var(--ink);transition:background .15s,color .15s}
+.tab:hover{background:var(--tabhov)}
+.tab[aria-selected="true"]{background:var(--ink);color:var(--on)}
+.tab[aria-selected="true"]::after{content:'';position:absolute;left:50%;bottom:-7px;width:10px;height:10px;background:var(--ink);transform:translateX(-50%) rotate(45deg)}
+.tab.today::before{content:'';position:absolute;top:5px;right:5px;width:6px;height:6px;background:currentColor}
+.lesson{background:var(--panel);color:var(--ink);position:relative;transition:background .12s,color .12s}
+.lesson::before{content:'';position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--ink)}
+.lesson:hover,.lesson:focus-visible,.lesson.now{background:var(--ink);color:var(--on);outline:none}
+.lesson:hover::before,.lesson.now::before{background:var(--on)}
+.lesson:hover .muted,.lesson.now .muted{color:var(--muti)}
+.chip{border:1px solid currentColor}
+.sq{width:8px;height:8px;background:currentColor;display:inline-block}
+.blink{animation:blink 1.2s steps(2,jump-none) infinite}
+@keyframes blink{50%{opacity:.2}}
+.swap>*{animation:swap .28s ease-out both}
+.swap>*:nth-child(2){animation-delay:.04s}.swap>*:nth-child(3){animation-delay:.08s}.swap>*:nth-child(4){animation-delay:.12s}.swap>*:nth-child(n+5){animation-delay:.16s}
+@keyframes swap{from{opacity:0;transform:translateX(-10px)}to{opacity:1;transform:none}}
+.scroll-x{scrollbar-width:none}.scroll-x::-webkit-scrollbar{display:none}
+:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+.field{background:var(--bg);border:1px solid var(--ink);color:var(--ink);font-family:'IBM Plex Mono',monospace}
+#player{position:fixed;left:0;right:0;bottom:0;padding:.5rem .75rem calc(.5rem + env(safe-area-inset-bottom,0px));z-index:20;pointer-events:none}
+#player .bar2{pointer-events:auto;background:var(--panel);box-shadow:0 0 0 1px var(--ink);margin-left:auto;max-width:26rem}
+.eq{display:inline-flex;gap:2px;align-items:flex-end;height:14px}
+.eq i{display:block;width:3px;height:3px;background:currentColor}
+.playing .eq i{animation:eq .9s ease-in-out infinite}
+.playing .eq i:nth-child(2){animation-delay:.25s}.playing .eq i:nth-child(3){animation-delay:.5s}
+@keyframes eq{50%{height:14px}}
+input[type=range]{accent-color:var(--ink);width:5rem}
+@media(prefers-reduced-motion:reduce){.swap>*,.blink,.playing .eq i{animation:none!important}*{transition:none!important}}
+
+/* ---- NieR-главная и анимации ---- */
+.menu{position:relative}
+.bar{position:absolute;left:0;right:0;top:0;height:0;background:var(--ink);transition:transform .24s cubic-bezier(.2,.9,.25,1.08),height .24s;z-index:0;animation:barin .5s .45s backwards}
+.mi{position:relative;z-index:1;display:flex;align-items:center;gap:1rem;width:100%;text-align:left;padding:1rem 1.1rem;color:var(--ink);transition:color .2s;border-bottom:1px solid color-mix(in srgb,var(--ink) 30%,transparent);cursor:pointer}
+.mi[aria-current="true"]{color:var(--on)}
+.mi .mk{width:9px;height:9px;background:currentColor;transform:rotate(45deg);flex:none;transition:transform .3s cubic-bezier(.2,.9,.25,1.2)}
+.mi[aria-current="true"] .mk{transform:rotate(225deg) scale(1.25)}
+.mi .badge{margin-left:auto;flex:none;font-family:'IBM Plex Mono',monospace;font-size:.7rem;padding:.1rem .45rem;box-shadow:inset 0 0 0 1px currentColor}
+.brk{position:relative}
+.brk::before,.brk::after{content:'';position:absolute;width:14px;height:14px;border:2px solid var(--ink);pointer-events:none}
+.brk::before{top:-1px;left:-1px;border-right:0;border-bottom:0}
+.brk::after{bottom:-1px;right:-1px;border-left:0;border-top:0}
+@keyframes barin{from{clip-path:inset(0 100% 0 0)}to{clip-path:inset(0 0 0 0)}}
+@keyframes draw{from{transform:scaleX(0)}to{transform:scaleX(1)}}
+@keyframes flick{0%{opacity:0}8%{opacity:1}16%{opacity:.15}26%{opacity:1}38%{opacity:.35}52%,100%{opacity:1}}
+@keyframes slidein{from{opacity:0;transform:translateX(-26px);clip-path:inset(0 100% 0 0)}to{opacity:1;transform:none;clip-path:inset(0 0 0 0)}}
+@keyframes typed{from{clip-path:inset(0 100% 0 0)}to{clip-path:inset(0 0 0 0)}}
+@keyframes glitch{0%,100%{transform:none;text-shadow:none}20%{transform:translate(-3px,0);text-shadow:3px 0 var(--mut)}40%{transform:translate(3px,1px);text-shadow:-3px 0 var(--mut)}60%{transform:translate(-1px,-1px);text-shadow:2px 0 var(--mut)}80%{transform:translate(2px,0);text-shadow:none}}
+@keyframes strip{0%{transform:translateX(-101%)}38%,62%{transform:translateX(0)}100%{transform:translateX(101%)}}
+@keyframes viewin{from{opacity:0;clip-path:inset(0 0 100% 0)}to{opacity:1;clip-path:inset(0 0 0 0)}}
+.draw{transform-origin:center;animation:draw .7s cubic-bezier(.2,.8,.2,1) backwards}
+.flick{animation:flick .7s steps(1,end) backwards}
+.glitch-in{animation:glitch .45s steps(1,end) 1}
+.view{animation:viewin .45s steps(6,end) backwards}
+.rev{animation:slidein .5s cubic-bezier(.2,.8,.2,1) backwards;animation-delay:calc(var(--i,0)*80ms)}
+.typed{animation:typed .6s steps(26,end) backwards}
+#title{display:inline-block}
+#wipe{position:fixed;inset:0;z-index:60;pointer-events:none;display:none;flex-direction:column}
+#wipe.on{display:flex}
+#wipe i{flex:1;background:var(--ink);transform:translateX(-101%)}
+#wipe.on i{animation:strip .62s cubic-bezier(.7,0,.3,1) both;animation-delay:calc(var(--k)*35ms)}
+@media(prefers-reduced-motion:reduce){.modal-in,.toast,.toast .pg{animation:none!important}.bar,.draw,.flick,.glitch-in,.view,.rev,.typed{animation:none!important}#wipe{display:none!important}.mi .mk{transition:none}}
+
+/* ---- уведомления ---- */
+#toasts{position:fixed;z-index:50;top:calc(.75rem + env(safe-area-inset-top,0px));right:.75rem;left:.75rem;display:flex;flex-direction:column;gap:.5rem;align-items:flex-end;pointer-events:none}
+.toast{pointer-events:auto;width:100%;max-width:23rem;background:var(--ink);color:var(--on);padding:.8rem .9rem;display:flex;gap:.75rem;align-items:flex-start;cursor:pointer;position:relative;animation:toastin .5s cubic-bezier(.2,.8,.2,1) backwards}
+.toast .mk2{width:9px;height:9px;background:currentColor;transform:rotate(45deg);flex:none;margin-top:.4rem}
+.toast .x{opacity:.7;font-size:1.1rem;line-height:1;cursor:pointer}
+.toast .x:hover{opacity:1}
+.toast .pg{position:absolute;left:0;bottom:0;height:2px;background:var(--on);opacity:.6;animation:pg 10s linear forwards}
+.toast.out{animation:toastout .3s steps(5,end) forwards}
+@keyframes toastin{from{opacity:0;transform:translateX(30px);clip-path:inset(0 0 0 100%)}to{opacity:1;transform:none;clip-path:inset(0 0 0 0)}}
+@keyframes toastout{to{opacity:0;clip-path:inset(0 0 100% 0)}}
+@keyframes pg{from{width:100%}to{width:0}}
+.linkbtn{text-decoration:underline;text-underline-offset:3px;cursor:pointer}
+.modal-in{animation:viewin .35s steps(5,end) backwards}
+#pwModal{background:color-mix(in srgb,var(--bg) 72%,transparent);backdrop-filter:blur(3px)}
+
+/* ---- прошедшие пары, архив недель ---- */
+.lesson.past{opacity:.55;background-image:repeating-linear-gradient(135deg,var(--hatch) 0 1px,transparent 1px 6px)}
+.lesson.past::before{opacity:.45}
+.lesson.past:hover,.lesson.past:focus-visible{opacity:1}
+.past-tag{letter-spacing:.04em}
+.tab.past{opacity:.55}
+.tab.past[aria-selected="true"],.tab.past:hover{opacity:1}
+.wi{display:flex;justify-content:space-between;gap:.75rem;width:100%;text-align:left;padding:.65rem .8rem;color:var(--ink);cursor:pointer;font-family:'IBM Plex Mono',monospace;font-size:.85rem;transition:background .12s,color .12s}
+.wi:hover{background:var(--tabhov)}
+.wi[aria-current="true"]{background:var(--ink);color:var(--on)}
+</style>
+</head>
+<body class="font-head antialiased">
+<div id="root"></div>
+<script id="app">
+const DAYS=['Понедельник','Вторник','Среда','Четверг','Пятница','Суббота','Воскресенье'];
+const SHORT=['Пн','Вт','Ср','Чт','Пт','Сб','Вс'];
+const BELLS=[['08:00','09:30'],['09:45','11:15'],['11:30','13:00'],['13:30','15:00'],['15:15','16:45'],['17:00','18:30'],['18:40','20:10'],['20:20','21:50']];
+const DATE_RE=/(\d{2})\.(\d{2})\.(\d{4})/;
+const $=id=>document.getElementById(id);
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+/* ---------- тема ---------- */
+function setTheme(t){
+  document.documentElement.dataset.theme=t;
+  const b=$('themeBtn');if(b)b.textContent=t==='night'?'☀ День':'☾ Ночь';
+  try{localStorage.setItem('theme',t)}catch(e){}
+}
+function initialTheme(){
+  try{const t=localStorage.getItem('theme');if(t)return t}catch(e){}
+  return matchMedia('(prefers-color-scheme: dark)').matches?'night':'day';
+}
+
+
+/* ---------- музыка (генерируется в браузере) ---------- */
+const Music=(()=>{
+  const T=[
+    {n:'Пустошь',r:110,s:[0,3,5,7,10],c:[[0,7,12,15],[-4,3,8,12],[3,10,15,19],[-2,5,10,14]]},
+    {n:'Сад',r:130.81,s:[0,2,4,7,9],c:[[0,7,12,16],[-3,4,9,12],[-7,0,5,9],[-5,2,7,11]]},
+    {n:'Ночь',r:73.42,s:[0,3,5,7,10],c:[[0,7,12,15],[-2,5,10,14],[5,12,17,20],[-5,2,7,10]]}
+  ];
+  let ctx,out,rev,vol=.5,i=0,on=false,step=0,tc,tp;
+  const f=(r,n)=>r*Math.pow(2,n/12);
+  function init(){
+    ctx=new(window.AudioContext||window.webkitAudioContext)();
+    out=ctx.createGain();out.gain.value=0;out.connect(ctx.destination);
+    rev=ctx.createConvolver();
+    const len=ctx.sampleRate*3.5,b=ctx.createBuffer(2,len,ctx.sampleRate);
+    for(let c=0;c<2;c++){const d=b.getChannelData(c);for(let k=0;k<len;k++)d[k]=(Math.random()*2-1)*Math.pow(1-k/len,3)}
+    rev.buffer=b;const rg=ctx.createGain();rg.gain.value=.8;rev.connect(rg);rg.connect(out);
+  }
+  function env(g,t,a,peak,hold,rel){
+    g.gain.setValueAtTime(.0001,t);g.gain.exponentialRampToValueAtTime(peak,t+a);
+    g.gain.setValueAtTime(peak,t+a+hold);g.gain.exponentialRampToValueAtTime(.0001,t+a+hold+rel);
+  }
+  function pad(){
+    const t=ctx.currentTime,tr=T[i],ch=tr.c[step++%tr.c.length];
+    ch.forEach(n=>[-5,5].forEach(dt=>{
+      const o=ctx.createOscillator(),g=ctx.createGain(),lp=ctx.createBiquadFilter();
+      o.type='triangle';o.frequency.value=f(tr.r,n);o.detune.value=dt;lp.type='lowpass';lp.frequency.value=700;
+      env(g,t,3,.045,2,4);o.connect(lp);lp.connect(g);g.connect(out);g.connect(rev);o.start(t);o.stop(t+9.5);
+    }));
+  }
+  function pluck(){
+    const t=ctx.currentTime,tr=T[i],n=tr.s[Math.floor(Math.random()*tr.s.length)]+12*(1+Math.floor(Math.random()*2));
+    const o=ctx.createOscillator(),g=ctx.createGain();
+    o.type='sine';o.frequency.value=f(tr.r,n);env(g,t,.015,.11,0,2.6);
+    o.connect(g);g.connect(out);g.connect(rev);o.start(t);o.stop(t+3);
+  }
+  function nxt(){if(!on)return;if(Math.random()<.7)pluck();tp=setTimeout(nxt,1200+Math.random()*2600)}
+  function loop(){clearInterval(tc);clearTimeout(tp);step=0;pad();tc=setInterval(pad,7000);nxt()}
+  return{
+    get playing(){return on},
+    get name(){return T[i].n},
+    play(){if(!ctx)init();ctx.resume();on=true;out.gain.cancelScheduledValues(ctx.currentTime);out.gain.setTargetAtTime(vol,ctx.currentTime,.8);loop()},
+    pause(){on=false;clearInterval(tc);clearTimeout(tp);out.gain.setTargetAtTime(0,ctx.currentTime,.4);setTimeout(()=>{if(!on)ctx.suspend()},1800)},
+    next(){i=(i+1)%T.length;if(on)loop()},
+    volume(v){vol=v;if(ctx&&on)out.gain.setTargetAtTime(v,ctx.currentTime,.1)}
+  };
+})();
+
+
+
+/* ---------- вспомогательное ---------- */
+const lsGet=k=>{try{return localStorage.getItem(k)}catch(e){return null}};
+const lsSet=(k,v)=>{try{localStorage.setItem(k,v)}catch(e){}};
+const lsDel=k=>{try{localStorage.removeItem(k)}catch(e){}};
+const reduce=()=>matchMedia('(prefers-reduced-motion: reduce)').matches;
+const pad=n=>String(n).padStart(2,'0');
+const isoOf=d=>d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());
+function ymd(s){const m=String(s).match(DATE_RE);return m?new Date(+m[3],+m[2]-1,+m[1]):null}
+function idDate(id){const m=String(id).match(/^(\d{4})-(\d{2})-(\d{2})$/);return m?new Date(+m[1],+m[2]-1,+m[3]):null}
+function todayStr(){const d=new Date();return pad(d.getDate())+'.'+pad(d.getMonth()+1)+'.'+d.getFullYear()}
+function rangeOf(id){
+  const a=idDate(id);if(!a)return String(id);
+  const b=new Date(a);b.setDate(a.getDate()+5);
+  return pad(a.getDate())+'.'+pad(a.getMonth()+1)+' – '+pad(b.getDate())+'.'+pad(b.getMonth()+1)+'.'+b.getFullYear();
+}
+const tm=l=>{const m=String(l.time).match(/(\d+):(\d+)\D+(\d+):(\d+)/);return m?[+m[1]*60+ +m[2],+m[3]*60+ +m[4]]:null};
+const hhmm=l=>String(l.time).split('–');
+function snippet(s,n){s=String(s).replace(/\s+/g,' ').trim();return s.length>n?s.slice(0,n-1)+'…':s}
+const fmtDate=iso=>{const d=new Date(iso);return isNaN(d)?'':d.toLocaleString('ru-RU',{day:'numeric',month:'long',hour:'2-digit',minute:'2-digit'})};
+const latestAt=ms=>ms.reduce((a,m)=>m.at>a?m.at:a,'');
+function pickWeekId(ids){const t=isoOf(new Date());let c='';for(const id of ids)if(id<=t)c=id;return c||ids[0]||''}
+
+/* ---------- состояние ---------- */
+let cfg={},idx={weeks:[]},msgs={items:[],hidden:[]};
+const cache={};
+let curId='',viewId='',draftW=null,baseUpdated='';
+let brig='',active=0,view='home',ci=0,busy=false,loadError=false;
+let unlocked=false,isAdmin=false,pwMem='',ghToken='',editMode=false,pwBusy=false,ed=null;
+const EMPTY={group:'',week:'',dates:['','','','','','',''],brigades:{}};
+const W=()=>draftW||cache[viewId]||EMPTY;
+const visibleMsgs=()=>(msgs.items||[]).filter(m=>!(msgs.hidden||[]).includes(m.id));
+const sortedMsgs=()=>visibleMsgs().sort((a,b)=>(b.pin?1:0)-(a.pin?1:0)||(a.at<b.at?1:-1));
+const keys=()=>Object.keys(W().brigades||{}).sort();
+const daysOf=()=>(W().brigades||{})[brig]||[[],[],[],[],[],[],[]];
+const todayIdx=()=>(W().dates||[]).indexOf(todayStr());
+const groupName=()=>W().group||cfg.group||'';
+function pickBrigade(){const k=keys(),s=lsGet('brig')||'';brig=k.includes(brig)?brig:k.includes(s)?s:(k[0]||'')}
+const sigOf=id=>cache[id]&&cache[id].updatedAt?id+'|'+cache[id].updatedAt:'';
+const unseenSched=()=>{const s=sigOf(curId);return !!s&&lsGet('sig')!==null&&lsGet('sig')!==s};
+const newCount=()=>{const s=lsGet('seen');return visibleMsgs().filter(m=>!s||m.at>s).length};
+
+function weekMeta(id,w){
+  w=w||cache[id];
+  const base=[(w&&w.week)||'',rangeOf(id)].filter(Boolean).join(' · ');
+  const a=idDate(id),t0=new Date();t0.setHours(0,0,0,0);
+  let suf='';
+  if(a){const b=new Date(a);b.setDate(a.getDate()+7);if(t0<a)suf=' · предстоящая';else if(t0>=b)suf=' · архив'}
+  return base+suf;
+}
+function lessonState(dateStr,l){
+  const d=ymd(dateStr),t=tm(l);if(!d||!t)return'';
+  const y=d.getFullYear(),m=d.getMonth(),dd=d.getDate(),now=Date.now();
+  const s=new Date(y,m,dd,0,t[0]).getTime(),e=new Date(y,m,dd,0,t[1]).getTime();
+  return now>=e?'past':now>=s?'now':'future';
+}
+function dayIsPast(i){const d=ymd((W().dates||[])[i]||'');if(!d)return false;const t=new Date();t.setHours(0,0,0,0);return d<t}
+function dayFor(id){const w=draftW&&viewId===id?draftW:cache[id];const i=((w&&w.dates)||[]).indexOf(todayStr());return i>=0?i:0}
+
+/* ---------- загрузка данных ---------- */
+async function getJSON(path){
+  const r=await fetch(path+(path.includes('?')?'&':'?')+'t='+Date.now(),{cache:'no-store'});
+  if(!r.ok)throw new Error(path+' → '+r.status);
+  return r.json();
+}
+async function loadWeek(id){
+  try{const w=await getJSON('data/weeks/'+id+'.json');w.dates=w.dates||[];w.brigades=w.brigades||{};cache[id]=w;return w}catch(e){return null}
+}
+async function loadAll(){
+  const [c,i,m]=await Promise.all([
+    getJSON('config.json').catch(()=>({})),
+    getJSON('data/index.json').catch(()=>null),
+    getJSON('data/messages.json').catch(()=>({items:[],hidden:[]}))]);
+  cfg=c;loadError=!i;idx=i||{weeks:[]};idx.weeks=(idx.weeks||[]).slice().sort();
+  msgs=m;msgs.items=msgs.items||[];msgs.hidden=msgs.hidden||[];
+  curId=pickWeekId(idx.weeks);viewId=curId;
+  if(curId)await loadWeek(curId);
+}
+async function poll(){
+  if(draftW||pwBusy||ed)return;
+  try{
+    const ni=await getJSON('data/index.json'),nm=await getJSON('data/messages.json').catch(()=>msgs);
+    ni.weeks=(ni.weeks||[]).slice().sort();nm.items=nm.items||[];nm.hidden=nm.hidden||[];
+    const nid=pickWeekId(ni.weeks),nw=nid?await getJSON('data/weeks/'+nid+'.json').catch(()=>null):null,old=cache[nid];
+    const changed=JSON.stringify(ni.weeks)!==JSON.stringify(idx.weeks)||JSON.stringify(nm)!==JSON.stringify(msgs)||(nw&&(!old||old.updatedAt!==nw.updatedAt));
+    if(!changed)return;
+    const wasCur=viewId===curId;
+    idx=ni;msgs=nm;
+    Object.keys(cache).forEach(k=>{if(k!==viewId)delete cache[k]});
+    if(nw){nw.dates=nw.dates||[];nw.brigades=nw.brigades||{};cache[nid]=nw}
+    curId=nid;if(wasCur||!cache[viewId])viewId=curId;
+    const ch=detectChanges();renderAll();ch.forEach(toast);sysNotify(ch);
+  }catch(e){}
+}
+
+/* ---------- каркас ---------- */
+function buildUI(){
+  const strips=Array.from({length:8},(_,k)=>`<i style="--k:${k}"></i>`).join('');
+  const bellOpts=BELLS.map((b,i)=>`<option value="${i+1}">${i+1} пара</option>`).join('');
+  $('root').innerHTML=`
+<div id="wipe" aria-hidden="true">${strips}</div>
+<div id="toasts" aria-live="polite"></div>
+
+<div id="pwModal" class="hidden fixed inset-0 z-[70] flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby="pwTitle">
+  <div class="brk panel modal-in w-full max-w-md p-5 sm:p-6" style="box-shadow:0 0 0 1px var(--ink)">
+    <div class="flex items-center gap-2 font-mono text-xs muted"><span class="sq"></span><span>Закрытый раздел</span></div>
+    <h2 id="pwTitle" class="text-2xl font-bold tracking-wider mt-1">Вход администратора</h2>
+    <p class="font-mono text-xs muted mt-2 leading-relaxed">Введите пароль — ровно 32 символа.</p>
+    <div class="flex gap-2 mt-4">
+      <input id="pwInput" type="password" maxlength="32" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" aria-label="Пароль администратора" class="field flex-1 min-w-0 px-3 py-2.5 text-sm">
+      <button id="pwEye" class="btn btn-o cut-sm" type="button">Показать</button>
+    </div>
+    <div class="flex justify-between gap-3 font-mono text-xs mt-1.5 min-h-[1.1rem]"><span id="pwCount" class="muted">0 / 32</span><span id="pwMsg" role="status" aria-live="polite"></span></div>
+    <div class="flex gap-2 mt-4">
+      <button id="pwOk" class="btn cut-sm" type="button" disabled>Войти</button>
+      <button id="pwCancel" class="btn btn-o cut-sm" type="button">Отмена</button>
+    </div>
+  </div>
+</div>
+
+<div id="edModal" class="hidden fixed inset-0 z-[70] flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby="edTitle" style="background:color-mix(in srgb,var(--bg) 72%,transparent);backdrop-filter:blur(3px)">
+  <div class="brk panel modal-in w-full max-w-md p-5 sm:p-6 max-h-[92vh] overflow-auto" style="box-shadow:0 0 0 1px var(--ink)">
+    <div class="flex items-center gap-2 font-mono text-xs muted"><span class="sq"></span><span id="edWhere"></span></div>
+    <h2 id="edTitle" class="text-2xl font-bold tracking-wider mt-1"></h2>
+    <div class="grid grid-cols-2 gap-2 mt-4 font-mono text-xs">
+      <label class="block">Пара<select id="edN" class="field w-full px-2 py-2 text-sm mt-1">${bellOpts}</select></label>
+      <label class="block">Время<input id="edTime" type="text" placeholder="08:00–09:30" class="field w-full px-2 py-2 text-sm mt-1"></label>
+    </div>
+    <label class="block font-mono text-xs mt-2">Предмет<textarea id="edSubj" rows="2" class="field w-full px-2 py-2 text-sm mt-1"></textarea></label>
+    <label class="block font-mono text-xs mt-2">Преподаватель<input id="edTeacher" type="text" class="field w-full px-2 py-2 text-sm mt-1"></label>
+    <div class="grid grid-cols-2 gap-2 mt-2 font-mono text-xs">
+      <label class="block">Аудитория<input id="edRoom" type="text" class="field w-full px-2 py-2 text-sm mt-1"></label>
+      <label class="block">Вид занятия<input id="edType" type="text" placeholder="пр.з." class="field w-full px-2 py-2 text-sm mt-1"></label>
+    </div>
+    <p id="edMsg" class="font-mono text-xs mt-2 min-h-[1.1rem]" role="status"></p>
+    <div class="flex flex-wrap gap-2 mt-3">
+      <button id="edOk" class="btn cut-sm" type="button">Готово</button>
+      <button id="edDel" class="btn btn-o cut-sm" type="button">Удалить пару</button>
+      <button id="edCancel" class="btn btn-o cut-sm" type="button">Отмена</button>
+    </div>
+  </div>
+</div>
+
+<main class="max-w-4xl mx-auto px-3 sm:px-6 pt-5 sm:pt-10 pb-28">
+  <header class="mb-5 sm:mb-6">
+    <div class="flex items-center justify-between gap-2 mb-3">
+      <div class="flex items-center gap-2 font-mono text-xs muted min-w-0"><span class="sq"></span><span id="crumb" class="truncate"></span></div>
+      <div class="flex items-center gap-1.5 shrink-0">
+        <button id="backBtn" class="btn btn-o cut-sm hidden" aria-label="На главную">‹ Назад</button>
+        <button id="brigBtn" class="btn cut-sm hidden" aria-label="Переключить бригаду"></button>
+        <button id="themeBtn" class="btn cut-sm" aria-label="Переключить тему"></button>
+      </div>
+    </div>
+    <h1 id="title" class="text-3xl sm:text-5xl font-bold tracking-[0.12em] leading-none"></h1>
+    <p id="sub" class="font-mono text-xs sm:text-sm muted mt-2 min-h-[1.2em]"></p>
+    <div id="rule" class="rule mt-4"></div><div class="rule2"></div>
+  </header>
+  <p id="draftNote" class="hidden font-mono text-xs mb-4" style="color:var(--err)">Есть несохранённые правки расписания. Откройте «Расписание» и нажмите «Сохранить в GitHub».</p>
+
+  <section id="admin" class="hidden mb-6 cut panel p-4 sm:p-5">
+    <h2 class="font-bold tracking-wider text-lg">Панель администратора</h2>
+
+    <h3 class="font-bold tracking-wide mt-3">Доступ к GitHub</h3>
+    <p id="tokState" class="font-mono text-xs muted mt-1 leading-relaxed"></p>
+    <div class="flex flex-wrap items-center gap-2 mt-2">
+      <input id="tokInput" type="password" autocomplete="off" spellcheck="false" placeholder="Токен GitHub (fine-grained)" class="field flex-1 min-w-[12rem] px-2 py-1.5 text-sm">
+      <button id="tokSave" class="btn btn-o cut-sm">Проверить и сохранить</button>
+    </div>
+
+    <h3 class="font-bold tracking-wide mt-5">Правка расписания</h3>
+    <p class="font-mono text-xs muted mt-1 leading-relaxed">Откройте «Расписание», нужную неделю и бригаду, включите режим правки: у пар появятся кнопки «Изменить», а у дня — «＋ Пара».</p>
+    <button id="editToggle" class="btn btn-o cut-sm mt-2"></button>
+
+    <h3 class="font-bold tracking-wide mt-5">Сообщение от куратора</h3>
+    <input id="mTitle" type="text" maxlength="80" placeholder="Заголовок (необязательно)" class="field w-full px-2 py-1.5 text-sm mt-2">
+    <textarea id="mText" rows="4" maxlength="1500" placeholder="Текст сообщения" class="field w-full px-2 py-1.5 text-sm mt-2"></textarea>
+    <div class="flex flex-wrap items-center gap-3 mt-2">
+      <label class="font-mono text-xs flex items-center gap-2"><input id="mPin" type="checkbox"> закрепить</label>
+      <button id="mAdd" class="btn cut-sm">Опубликовать сообщение</button>
+    </div>
+
+    <h3 class="font-bold tracking-wide mt-5">Пароль администратора</h3>
+    <div class="flex flex-wrap items-center gap-2 mt-2">
+      <input id="newPw" type="password" maxlength="32" autocomplete="off" spellcheck="false" placeholder="Новый пароль, 32 символа" class="field flex-1 min-w-[12rem] px-2 py-1.5 text-sm">
+      <button id="pwChange" class="btn btn-o cut-sm">Сменить пароль</button>
+    </div>
+
+    <div class="flex flex-wrap gap-2 mt-5"><button id="lockBtn" class="btn btn-o cut-sm">Выйти из админки</button></div>
+    <p id="status" class="font-mono text-xs mt-3 min-h-[1.25rem] leading-relaxed" role="status" aria-live="polite"></p>
+  </section>
+
+  <div id="views">
+    <section id="v-home" class="view">
+      <div class="grid md:grid-cols-[1.1fr_1fr] gap-6 items-start">
+        <div id="menu" class="menu" role="menu" aria-label="Разделы"></div>
+        <aside id="detail" class="brk panel p-4 sm:p-5 min-h-[10rem]" aria-live="polite"></aside>
+      </div>
+    </section>
+
+    <section id="v-schedule" class="view hidden">
+      <div class="flex items-stretch gap-1.5 mb-2">
+        <button id="wPrev" class="btn btn-o cut-sm" aria-label="Предыдущая неделя">‹</button>
+        <button id="wLabel" class="btn btn-o cut-sm flex-1 min-w-0 truncate" aria-expanded="false" aria-controls="wList"></button>
+        <button id="wNext" class="btn btn-o cut-sm" aria-label="Следующая неделя">›</button>
+      </div>
+      <div id="wList" class="hidden panel mb-3 p-1 max-h-72 overflow-auto"></div>
+      <div id="editBar" class="hidden panel p-3 mb-3 flex flex-wrap items-center gap-x-3 gap-y-2 font-mono text-xs">
+        <span id="editInfo" class="mr-auto"></span>
+        <label class="flex items-center gap-1.5"><input id="keepEdited" type="checkbox" checked> не затирать при обновлении из PDF</label>
+        <button id="saveWeek" class="btn cut-sm" disabled>Сохранить в GitHub</button>
+        <button id="discardWeek" class="btn btn-o cut-sm" disabled>Отменить правки</button>
+      </div>
+      <nav aria-label="Дни недели" class="mb-6 mt-3"><div id="tabs" role="tablist" class="scroll-x flex md:grid md:grid-cols-7 gap-1.5 overflow-x-auto pb-3 -mx-3 px-3 sm:mx-0 sm:px-0 snap-x"></div></nav>
+      <div id="panel" role="tabpanel">
+        <div class="flex items-center justify-between gap-2 mb-3">
+          <h2 id="dayTitle" class="text-xl sm:text-2xl font-bold tracking-wider"></h2>
+          <span class="flex items-center gap-2"><span id="dayCount" class="font-mono text-xs muted"></span><button id="addLesson" class="btn btn-o cut-sm hidden">＋ Пара</button></span>
+        </div>
+        <div id="list" class="swap flex flex-col gap-2"></div>
+      </div>
+    </section>
+
+    <section id="v-messages" class="view hidden">
+      <div id="msgList" class="flex flex-col gap-3"></div>
+    </section>
+  </div>
+
+  <footer class="mt-10 pt-3 border-t font-mono text-[11px] muted flex flex-wrap items-center justify-between gap-2" style="border-color:color-mix(in srgb,var(--ink) 40%,transparent)">
+    <span id="updated"></span>
+    <span class="flex items-center gap-3"><button id="notifBtn" class="linkbtn"></button><span id="hint" class="hidden sm:inline"></span>
+      <button id="adminBtn" title="Администратор" aria-label="Вход для администратора" class="w-6 h-6 flex items-center justify-center opacity-60 hover:opacity-100" style="box-shadow:inset 0 0 0 1px currentColor"><span class="sq" style="width:6px;height:6px"></span></button>
+    </span>
+  </footer>
+  <p id="note" class="font-mono text-xs mt-2 min-h-[1rem]" role="status"></p>
+</main>
+
+<div id="player"><div class="bar2 cut-sm flex items-center gap-3 px-3 py-2">
+  <button id="playBtn" class="btn w-10 h-10 !p-0 flex items-center justify-center" aria-label="Играть музыку">▶</button>
+  <div class="min-w-0 flex-1">
+    <div id="trackName" class="font-bold tracking-wide text-sm truncate"></div>
+    <div class="flex items-center gap-2 muted font-mono text-[10px]"><span class="eq"><i></i><i></i><i></i></span>эмбиент</div>
+  </div>
+  <button id="nextBtn" class="btn btn-o w-9 h-9 !p-0 flex items-center justify-center" aria-label="Следующий трек">⏭</button>
+  <input id="vol" type="range" min="0" max="1" step="0.05" value="0.5" aria-label="Громкость">
+</div></div>`;
+}
+
+/* ---------- шапка ---------- */
+const LABEL={home:'Главная',schedule:'Расписание',messages:'Сообщения'};
+function renderHeader(){
+  $('crumb').textContent=view==='home'?'Главная':'Главная › '+LABEL[view];
+  $('title').textContent=view==='home'?'Группа '+(groupName()||'—'):LABEL[view];
+  const s=$('sub');
+  if(view==='home')s.textContent=loadError?'Не удалось загрузить данные':'Выберите раздел';
+  else if(view==='schedule')s.textContent=viewId?weekMeta(viewId,W()):'Расписание не загружено';
+  else s.textContent='От куратора группы '+groupName();
+  $('backBtn').classList.toggle('hidden',view==='home');
+  $('brigBtn').classList.toggle('hidden',!(view==='schedule'&&keys().length>1));
+  $('brigBtn').textContent='⇄ Бригада '+brig;
+  $('draftNote').classList.toggle('hidden',!draftW);
+  const w=cache[viewId],u=w&&w.updatedAt?new Date(w.updatedAt):null;
+  $('updated').textContent=view==='schedule'&&u&&!isNaN(u)?'Обновлено: '+u.toLocaleString('ru-RU',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})+(w.edited?' · правка вручную':w.source?' · '+w.source:''):'';
+  updateNotifBtn();
+  $('hint').textContent=view==='home'?'↑ ↓ выбор · Enter открыть':view==='schedule'?'← → дни · Esc назад':'Esc назад';
+}
+
+/* ---------- главная ---------- */
+function menuItems(){
+  const n=newCount(),w=cache[curId];
+  return[
+    {id:'schedule',t:'Расписание',s:w&&w.week?w.week+' · бригада '+brig:'Пары по дням недели',badge:unseenSched()?'новое':''},
+    {id:'messages',t:'Сообщения от куратора',s:visibleMsgs().length?'Всего сообщений: '+visibleMsgs().length:'Пока пусто',badge:n?n+' нов.':''}
+  ];
+}
+function placeBar(instant){
+  const bar=$('bar'),el=$('menu').querySelector('.mi[aria-current="true"]');
+  if(!bar||!el)return;
+  if(instant)bar.style.transition='none';
+  bar.style.height=el.offsetHeight+'px';
+  bar.style.transform='translateY('+el.offsetTop+'px)';
+  if(instant){void bar.offsetWidth;bar.style.transition=''}
+}
+function renderMenu(){
+  const it=menuItems();
+  $('menu').innerHTML='<div id="bar" class="bar"></div>'+it.map((x,i)=>`<button role="menuitem" class="mi rev" style="--i:${i+2}" data-i="${i}" aria-current="${i===ci}">
+    <span class="mk"></span>
+    <span class="min-w-0"><span class="block font-bold tracking-wider text-lg sm:text-xl">${esc(x.t)}</span><span class="block font-mono text-xs opacity-70 mt-0.5">${esc(x.s)}</span></span>
+    ${x.badge?`<span class="badge">${esc(x.badge)}</span>`:''}</button>`).join('');
+  placeBar(true);renderDetail(true);
+}
+function detailLines(id){
+  const L=[];
+  if(id==='schedule'){
+    L.push(`<span class="font-mono text-xs muted">Расписание · бригада ${esc(brig||'—')}</span>`);
+    const td=todayIdx(),w=W();
+    if(loadError)L.push('Не удалось загрузить данные. Обновите страницу.');
+    else if(!keys().length)L.push('Расписание ещё не загружено.');
+    else if(td<0)L.push('Сегодняшнего дня нет в этой неделе.','<span class="muted">'+esc(weekMeta(viewId,w))+'</span>');
+    else{
+      const ls=daysOf()[td]||[];
+      L.push('<b>Сегодня, '+esc(w.dates[td].slice(0,5))+'</b>');
+      if(!ls.length)L.push('Занятий нет — свободный день.');
+      else{
+        const left=ls.filter(l=>lessonState(w.dates[td],l)!=='past').length;
+        L.push('Пар: '+ls.length+' · с '+esc(hhmm(ls[0])[0])+' до '+esc(hhmm(ls[ls.length-1])[1]));
+        const now=ls.find(l=>lessonState(w.dates[td],l)==='now'),nx=ls.find(l=>lessonState(w.dates[td],l)==='future');
+        if(now)L.push('Идёт: '+esc(snippet(now.subject,48))+' до '+esc(hhmm(now)[1]));
+        else if(nx)L.push('Дальше: '+esc(snippet(nx.subject,48))+' в '+esc(hhmm(nx)[0])+' · осталось пар: '+left);
+        else L.push('На сегодня всё.');
+      }
+    }
+  }else{
+    L.push('<span class="font-mono text-xs muted">Сообщения от куратора</span>');
+    const ms=visibleMsgs().sort((a,b)=>a.at<b.at?1:-1),n=newCount();
+    if(!ms.length)L.push('Сообщений пока нет.');
+    else{
+      L.push(n?'<b>Новых: '+n+'</b>':'Новых сообщений нет.');
+      const x=ms[0];
+      L.push('<span class="muted">Последнее · '+esc(fmtDate(x.at))+'</span>');
+      L.push(esc(snippet((x.title?x.title+'. ':'')+x.text,110)));
+    }
+  }
+  return L;
+}
+let lastDetail='';
+function renderDetail(force){
+  const it=menuItems()[ci],h=detailLines(it.id).map((l,i)=>`<p class="typed leading-relaxed mb-1.5" style="animation-delay:${i*140}ms">${l}</p>`).join('');
+  if(h===lastDetail&&!force)return;
+  lastDetail=h;$('detail').innerHTML=h;
+}
+function moveCursor(i){
+  const n=menuItems().length;i=(i+n)%n;
+  if(i===ci)return;
+  ci=i;
+  document.querySelectorAll('#menu .mi').forEach((b,k)=>b.setAttribute('aria-current',k===ci));
+  placeBar(false);renderDetail(true);
+}
+function openItem(i){go(menuItems()[i].id)}
+
+/* ---------- расписание ---------- */
+function renderWeekNav(){
+  const ids=idx.weeks||[],i=ids.indexOf(viewId);
+  $('wPrev').disabled=i<=0;$('wNext').disabled=i<0||i>=ids.length-1;
+  $('wLabel').textContent=(viewId?weekMeta(viewId,W()):'Нет недель')+' ▾';
+  $('wList').innerHTML=ids.slice().reverse().map(id=>`<button class="wi" data-w="${esc(id)}" aria-current="${id===viewId}"><span>${esc(rangeOf(id))}</span><span class="font-mono text-[11px] opacity-70">${id===curId?'текущая':id>curId?'предстоящая':'архив'}</span></button>`).join('')||'<p class="p-3 font-mono text-xs muted">Архив пуст</p>';
+}
+function renderTabs(){
+  const dd=daysOf(),dt=W().dates||[],td=todayIdx();
+  $('tabs').innerHTML=DAYS.map((name,i)=>`<button role="tab" id="tab-${i}" aria-selected="${i===active}" tabindex="${i===active?0:-1}" data-i="${i}" class="tab cut-sm snap-start shrink-0 md:shrink min-w-[58px] md:min-w-0 px-3 py-3 text-center ${i===td?'today':''} ${dayIsPast(i)?'past':''}">
+    <span class="block font-bold tracking-wider text-base"><span class="lg:hidden">${SHORT[i]}</span><span class="hidden lg:inline text-sm">${name}</span></span>
+    <span class="block font-mono text-[10px] mt-0.5 opacity-70">${dt[i]?dt[i].slice(0,5):'—'}${dd[i]&&dd[i].length?'':' ·'}</span></button>`).join('');
+}
+function roomText(r){return !r?'':/^\d/.test(r)?'ауд. '+r:r}
+function renderList(){
+  const ls=daysOf()[active]||[],list=$('list'),w=W(),date=(w.dates||[])[active]||'',editing=isAdmin&&editMode;
+  $('dayTitle').textContent=DAYS[active]+(date?', '+date.slice(0,5):'');
+  const left=ls.filter(l=>lessonState(date,l)!=='past').length;
+  $('dayCount').textContent=ls.length?(left<ls.length?'Пар: '+ls.length+' · осталось '+left:'Пар: '+ls.length):'';
+  $('addLesson').classList.toggle('hidden',!editing);
+  if(!keys().length)list.innerHTML=`<div class="cut panel p-8 text-center"><div class="sq mb-3"></div><p class="text-lg font-bold tracking-wider">Расписание не загружено</p><p class="font-mono text-xs muted mt-1">Данные появятся, когда агент разберёт PDF.</p></div>`;
+  else if(!ls.length)list.innerHTML=`<div class="cut panel p-8 text-center"><div class="sq mb-3"></div><p class="text-lg font-bold tracking-wider">Занятий нет</p><p class="font-mono text-xs muted mt-1">Свободный день.</p></div>`;
+  else list.innerHTML=ls.map((l,i)=>{
+    const st=lessonState(date,l),[a,b]=String(l.time).split('–'),rt=roomText(l.room);
+    return`<article tabindex="0" class="lesson cut ${st==='now'?'now':''} ${st==='past'?'past':''} pl-5 pr-4 py-3 sm:py-4 flex gap-4 items-stretch">
+      <div class="w-16 sm:w-24 shrink-0 font-mono flex flex-col justify-center"><span class="text-lg sm:text-2xl font-medium leading-none">${esc(a||l.time)}</span>${b?`<span class="text-xs sm:text-sm muted mt-1">${esc(b)}</span>`:''}<span class="text-[10px] muted mt-1">${esc(l.n)} пара</span></div>
+      <div class="w-px bg-current opacity-30"></div>
+      <div class="flex-1 min-w-0 flex flex-col justify-center gap-1.5">
+        <h3 class="text-base sm:text-xl font-bold tracking-wide leading-snug break-words">${esc(l.subject)}</h3>
+        <div class="flex flex-wrap items-center gap-x-3 gap-y-1.5 font-mono text-xs sm:text-sm">
+          ${l.teacher?`<span class="muted">${esc(l.teacher)}</span>`:''}${rt?`<span class="chip px-2 py-0.5">${esc(rt)}</span>`:''}${l.type?`<span class="muted">${esc(l.type)}</span>`:''}
+          ${st==='now'?`<span class="inline-flex items-center gap-1.5"><span class="sq blink"></span>идёт сейчас</span>`:''}
+          ${st==='past'?`<span class="inline-flex items-center gap-1.5 past-tag"><span class="sq"></span>прошла</span>`:''}
+          ${editing?`<button class="chip px-2 py-0.5 ml-auto" data-edit="${i}">Изменить</button>`:''}
+        </div></div></article>`}).join('');
+  list.classList.remove('swap');void list.offsetWidth;list.classList.add('swap');
+  $('panel').setAttribute('aria-labelledby','tab-'+active);
+}
+function syncEditBar(){
+  const on=isAdmin&&editMode;
+  $('editBar').classList.toggle('hidden',!on);
+  $('saveWeek').disabled=!draftW;$('discardWeek').disabled=!draftW;
+  $('editInfo').textContent=draftW?'Есть несохранённые правки':'Режим правки: изменений нет';
+  $('editToggle').textContent='Режим правки: '+(editMode?'включён':'выключен');
+  $('draftNote').classList.toggle('hidden',!draftW);
+}
+function selectDay(i,focus){active=(i+7)%7;renderTabs();renderList();const t=$('tab-'+active);t.scrollIntoView({inline:'center',block:'nearest',behavior:'smooth'});if(focus)t.focus()}
+function cycleBrig(){
+  const k=keys();if(k.length<2)return;
+  brig=k[(k.indexOf(brig)+1)%k.length];lsSet('brig',brig);
+  renderHeader();renderTabs();renderList();
+  const b=$('brigBtn');b.classList.remove('glitch-in');void b.offsetWidth;b.classList.add('glitch-in');
+}
+async function gotoWeek(id){
+  if(!id||id===viewId){$('wList').classList.add('hidden');return}
+  if(draftW){note('Сначала сохраните или отмените правки.',true);return}
+  if(!cache[id]){
+    $('list').innerHTML='<p class="font-mono text-xs muted p-4">Загрузка…</p>';
+    if(!await loadWeek(id)){note('Не удалось загрузить эту неделю.',true);renderList();return}
+  }
+  viewId=id;pickBrigade();active=dayFor(id);
+  $('wList').classList.add('hidden');$('wLabel').setAttribute('aria-expanded','false');
+  renderHeader();renderTabs();renderList();renderWeekNav();syncEditBar();
+}
+
+/* ---------- сообщения ---------- */
+function renderMessages(){
+  const ms=sortedMsgs(),seen=lsGet('seen'),box=$('msgList');
+  if(!ms.length){box.innerHTML=`<div class="cut panel p-8 text-center rev"><div class="sq mb-3"></div><p class="text-lg font-bold tracking-wider">Сообщений пока нет</p><p class="font-mono text-xs muted mt-1">Здесь появятся объявления куратора.</p></div>`;return}
+  box.innerHTML=ms.map((m,i)=>{
+    const isNew=!seen||m.at>seen;
+    return`<article tabindex="0" class="lesson cut rev pl-5 pr-4 py-3 sm:py-4" style="--i:${i}">
+      <div class="flex items-center gap-2 font-mono text-[11px] muted">
+        ${m.pin?'<span class="sq"></span><span>закреплено</span><span>·</span>':''}<span>${esc(fmtDate(m.at))}</span>
+        ${isNew?'<span class="chip px-1.5">новое</span>':''}
+        ${isAdmin?`<button data-del="${esc(m.id)}" class="ml-auto px-2 chip" aria-label="Удалить сообщение">Удалить</button>`:''}
+      </div>
+      ${m.title?`<h3 class="font-bold tracking-wide text-lg sm:text-xl mt-1.5">${esc(m.title)}</h3>`:''}
+      <p class="mt-1.5 text-sm sm:text-base leading-relaxed" style="white-space:pre-wrap;word-break:break-word">${esc(m.text)}</p></article>`}).join('');
+}
+
+/* ---------- уведомления ---------- */
+function updateTitle(){
+  const n=newCount()+(unseenSched()?1:0);
+  document.title=(n?'('+n+') ':'')+'Расписание занятий';
+}
+function notifOn(){return lsGet('notif')==='1'&&typeof Notification!=='undefined'&&Notification.permission==='granted'}
+function updateNotifBtn(){
+  const b=$('notifBtn');if(!b)return;
+  b.textContent='Уведомления: '+(notifOn()?'вкл':'выкл');
+  b.setAttribute('aria-pressed',notifOn());
+}
+function toast(t){
+  const box=$('toasts');
+  while(box.children.length>=3)box.removeChild(box.firstChild);
+  const el=document.createElement('div');
+  el.className='toast cut-sm';el.setAttribute('role','status');
+  el.innerHTML=`<span class="mk2"></span><div class="min-w-0 flex-1"><div class="font-bold tracking-wide">${esc(t.title)}</div><div class="font-mono text-xs opacity-80 mt-0.5 break-words">${esc(t.text||'')}</div></div><button class="x font-mono px-1" aria-label="Закрыть">×</button><i class="pg"></i>`;
+  const kill=()=>{if(!el.isConnected)return;el.classList.add('out');setTimeout(()=>el.remove(),320)};
+  el.addEventListener('click',e=>{const x=e.target.closest&&e.target.closest('.x');kill();if(!x&&t.go)go(t.go)});
+  box.appendChild(el);
+  setTimeout(kill,10000);
+}
+function detectChanges(){
+  const out=[],id=curId,w=cache[id];
+  if(w&&w.updatedAt){
+    const sig=sigOf(id);
+    if(lsGet('sig')===null){lsSet('sig',sig);lsSet('wk',id)}
+    else if(lsGet('sig')!==sig){
+      out.push({kind:'schedule',go:'schedule',title:lsGet('wk')!==id?'Новое расписание на неделю':'Расписание обновлено',text:weekMeta(id,w)});
+    }
+  }
+  const seen=lsGet('seen'),fresh=visibleMsgs().filter(x=>!seen||x.at>seen).sort((a,b)=>a.at<b.at?1:-1);
+  if(fresh.length){
+    const x=fresh[0];
+    out.push({kind:'messages',go:'messages',title:fresh.length===1?'Новое сообщение от куратора':'Новые сообщения от куратора: '+fresh.length,text:snippet((x.title?x.title+'. ':'')+x.text,90)});
+  }
+  return out;
+}
+function sysNotify(items){
+  if(!notifOn()||document.visibilityState==='visible')return;
+  items.forEach(i=>{try{new Notification(i.title,{body:i.text,tag:'grp-'+i.kind})}catch(e){}});
+}
+async function toggleNotif(){
+  if(typeof Notification==='undefined'){note('Системные уведомления в этом браузере недоступны. Оповещения на самом сайте работают.',true);return}
+  if(lsGet('notif')==='1'){lsSet('notif','0');updateNotifBtn();note('Системные уведомления выключены.');return}
+  let p=Notification.permission;
+  if(p==='default'){try{p=await Notification.requestPermission()}catch(e){p='denied'}}
+  if(p==='granted'){
+    lsSet('notif','1');updateNotifBtn();
+    note('Включено. Уведомление придёт, пока сайт открыт во вкладке или в фоне. Если сайт закрыт, оповещение появится при следующем открытии.');
+    try{new Notification('Уведомления включены',{body:'Группа '+groupName()})}catch(e){}
+  }else note('Браузер не разрешил уведомления. Оповещения на сайте останутся.',true);
+}
+
+/* ---------- переходы ---------- */
+function restart(el,cls){el.classList.remove(cls);void el.offsetWidth;el.classList.add(cls)}
+function renderView(){
+  if(view==='home')renderMenu();
+  else if(view==='schedule'){renderWeekNav();renderTabs();renderList();syncEditBar()}
+  else renderMessages();
+}
+function renderAll(){pickBrigade();renderHeader();renderView();updateTitle()}
+function show(v){
+  view=v;
+  if(v==='home'&&!draftW){viewId=curId;active=Math.max(0,todayIdx())}
+  pickBrigade();
+  ['home','schedule','messages'].forEach(x=>$('v-'+x).classList.toggle('hidden',x!==v));
+  restart($('v-'+v),'view');
+  restart($('title'),v==='home'?'flick':'glitch-in');
+  restart($('rule'),'draw');
+  renderHeader();renderView();
+  if(v==='messages')lsSet('seen',latestAt(visibleMsgs())||lsGet('seen')||'');
+  if(v==='schedule'&&viewId===curId&&sigOf(curId)){lsSet('sig',sigOf(curId));lsSet('wk',curId)}
+  updateTitle();
+  window.scrollTo(0,0);
+}
+function go(v){
+  if(busy||v===view)return;
+  if(reduce()){show(v);return}
+  busy=true;
+  const w=$('wipe');w.classList.add('on');
+  setTimeout(()=>show(v),250);
+  setTimeout(()=>{w.classList.remove('on');busy=false},760);
+}
+function note(msg,err){const n=$('note');n.textContent=msg;n.style.color=err?'var(--err)':'';clearTimeout(note.t);note.t=setTimeout(()=>n.textContent='',4500)}
+function status(msg,err){const s=$('status');s.textContent=msg;s.style.color=err?'var(--err)':''}
+
+/* ---------- пароль администратора ---------- */
+const PW_LEN=32,PW_ITER=210000;
+const b64=a=>{let s='';new Uint8Array(a).forEach(c=>s+=String.fromCharCode(c));return btoa(s)};
+const unb64=s=>Uint8Array.from(atob(s),c=>c.charCodeAt(0));
+const enc=new TextEncoder();
+async function pbk(pw,salt,iter){
+  const k=await crypto.subtle.importKey('raw',enc.encode(pw),'PBKDF2',false,['deriveBits']);
+  return new Uint8Array(await crypto.subtle.deriveBits({name:'PBKDF2',hash:'SHA-256',salt,iterations:iter},k,256));
+}
+async function checkPw(pw){
+  const p=cfg.pw;if(!p)return false;
+  const h=await pbk(pw,unb64(p.s),p.i),e=unb64(p.h);
+  if(h.length!==e.length)return false;
+  let d=0;for(let i=0;i<h.length;i++)d|=h[i]^e[i];
+  return d===0;
+}
+const pwOpen=()=>!$('pwModal').classList.contains('hidden');
+function pwMsg(t,err){const m=$('pwMsg');m.textContent=t||'';m.style.color=err?'var(--err)':''}
+function pwUpdate(){const n=$('pwInput').value.length;$('pwCount').textContent=n+' / '+PW_LEN;$('pwOk').disabled=n!==PW_LEN||pwBusy}
+function openPw(){
+  let lu=0;try{lu=+(sessionStorage.getItem('pwlock')||0)}catch(e){}
+  $('pwInput').value='';$('pwInput').type='password';$('pwEye').textContent='Показать';
+  pwMsg(!cfg.pw?'В config.json не задан пароль администратора.':lu>Date.now()?'Слишком много попыток. Подождите '+Math.ceil((lu-Date.now())/1000)+' с.':'',true);
+  pwUpdate();
+  const m=$('pwModal');m.classList.remove('hidden');
+  if(m.firstElementChild)restart(m.firstElementChild,'modal-in');
+  setTimeout(()=>$('pwInput').focus(),60);
+}
+function closePw(){$('pwModal').classList.add('hidden');$('pwInput').value='';$('adminBtn').focus()}
+async function submitPw(){
+  const v=$('pwInput').value;
+  if(v.length!==PW_LEN||pwBusy)return;
+  let lu=0;try{lu=+(sessionStorage.getItem('pwlock')||0)}catch(e){}
+  if(lu>Date.now()){pwMsg('Слишком много попыток. Подождите '+Math.ceil((lu-Date.now())/1000)+' с.',true);return}
+  pwBusy=true;pwUpdate();pwMsg('Проверяю…');
+  let ok=false,failed=false;
+  try{ok=await checkPw(v)}catch(e){failed=true}
+  pwBusy=false;
+  if(failed){pwMsg('Проверка пароля недоступна в этом браузере.',true);pwUpdate();return}
+  if(ok){
+    try{sessionStorage.removeItem('pwfails')}catch(e){}
+    pwMem=v;unlocked=true;await loadToken();closePw();setAdmin();
+    $('admin').classList.remove('hidden');note('Вход выполнен.');
+    return;
+  }
+  await new Promise(r=>setTimeout(r,700));
+  let f=0;try{f=+(sessionStorage.getItem('pwfails')||0)+1;sessionStorage.setItem('pwfails',f)}catch(e){}
+  $('pwInput').value='';
+  if(f>=5){try{sessionStorage.setItem('pwlock',Date.now()+60000);sessionStorage.removeItem('pwfails')}catch(e){}pwMsg('Пять неверных попыток. Вход закрыт на 60 с.',true)}
+  else pwMsg('Неверный пароль. Попыток осталось: '+(5-f)+'.',true);
+  pwUpdate();$('pwInput').focus();
+}
+function setAdmin(){
+  isAdmin=unlocked;
+  if(!isAdmin){$('admin').classList.add('hidden');editMode=false}
+  renderAdmin();renderHeader();renderView();
+}
+function lockAdmin(){
+  if(draftW&&!confirmDiscard())return;
+  unlocked=false;pwMem='';ghToken='';draftW=null;editMode=false;setAdmin();note('Вы вышли из админки.');
+}
+function confirmDiscard(){note('Есть несохранённые правки. Сохраните или отмените их.',true);return false}
+
+/* ---------- токен GitHub (хранится зашифрованным паролем админа) ---------- */
+async function aesKey(pw,salt){
+  const k=await crypto.subtle.importKey('raw',enc.encode(pw),'PBKDF2',false,['deriveKey']);
+  return crypto.subtle.deriveKey({name:'PBKDF2',hash:'SHA-256',salt,iterations:150000},k,{name:'AES-GCM',length:256},false,['encrypt','decrypt']);
+}
+async function encTok(pw,tok){
+  const salt=crypto.getRandomValues(new Uint8Array(16)),iv=crypto.getRandomValues(new Uint8Array(12));
+  const ct=await crypto.subtle.encrypt({name:'AES-GCM',iv},await aesKey(pw,salt),enc.encode(tok));
+  return{s:b64(salt),iv:b64(iv),c:b64(ct)};
+}
+async function decTok(pw,o){
+  const pt=await crypto.subtle.decrypt({name:'AES-GCM',iv:unb64(o.iv)},await aesKey(pw,unb64(o.s)),unb64(o.c));
+  return new TextDecoder().decode(pt);
+}
+async function loadToken(){
+  ghToken='';const raw=lsGet('tokEnc');if(!raw)return;
+  try{ghToken=await decTok(pwMem,JSON.parse(raw))}catch(e){ghToken=''}
+}
+function renderAdmin(){
+  if(!$('tokState'))return;
+  $('tokState').textContent=ghToken?'Токен сохранён на этом устройстве в зашифрованном виде. Репозиторий: '+(repoName()||'не определён'):'Токен не задан. Создайте токен GitHub (fine-grained) только для этого репозитория с правом Contents: Read and write и вставьте сюда. Он нужен для сохранения правок.';
+  $('editToggle').textContent='Режим правки: '+(editMode?'включён':'выключен');
+}
+
+/* ---------- GitHub API ---------- */
+function repoInfo(){
+  const r=cfg.repo;
+  if(r&&r.owner&&r.name)return{owner:r.owner,name:r.name,branch:r.branch||'main',dir:r.dir||'docs'};
+  const m=location.hostname.match(/^([^.]+)\.github\.io$/);
+  if(m){const seg=location.pathname.split('/').filter(Boolean)[0];return{owner:m[1],name:seg&&!/\.html?$/.test(seg)?seg:m[1]+'.github.io',branch:'main',dir:'docs'}}
+  return null;
+}
+const repoName=()=>{const r=repoInfo();return r?r.owner+'/'+r.name:''};
+const toB64=s=>{let b='';enc.encode(s).forEach(c=>b+=String.fromCharCode(c));return btoa(b)};
+const fromB64=s=>new TextDecoder().decode(Uint8Array.from(atob(s.replace(/\s/g,'')),c=>c.charCodeAt(0)));
+function ghErr(r){
+  const e=new Error(r.status===401?'Токен недействителен или истёк.':r.status===403?'Нет прав или превышен лимит GitHub.':r.status===404?'Репозиторий или файл не найден. Проверьте права токена (Contents: Read and write).':r.status===409||r.status===422?'Файл изменился на сервере. Повторите.':'GitHub вернул ошибку '+r.status+'.');
+  e.status=r.status;return e;
+}
+function ghReq(url,opt){
+  if(!ghToken)throw new Error('Сначала сохраните токен GitHub в панели администратора.');
+  return fetch(url,{...opt,headers:{Authorization:'Bearer '+ghToken,Accept:'application/vnd.github+json','Content-Type':'application/json'},cache:'no-store'});
+}
+async function ghGet(path){
+  const ri=repoInfo();if(!ri)throw new Error('Не удалось определить репозиторий. Добавьте поле repo в config.json.');
+  const r=await ghReq('https://api.github.com/repos/'+ri.owner+'/'+ri.name+'/contents/'+ri.dir+'/'+path+'?ref='+encodeURIComponent(ri.branch));
+  if(r.status===404)return null;
+  if(!r.ok)throw ghErr(r);
+  const j=await r.json();return{sha:j.sha,text:fromB64(j.content)};
+}
+async function ghPut(path,text,sha,message){
+  const ri=repoInfo();
+  const body={message,content:toB64(text),branch:ri.branch};if(sha)body.sha=sha;
+  const r=await ghReq('https://api.github.com/repos/'+ri.owner+'/'+ri.name+'/contents/'+ri.dir+'/'+path,{method:'PUT',body:JSON.stringify(body)});
+  if(!r.ok)throw ghErr(r);
+}
+async function ghUpdate(path,mutate,message){
+  for(let t=0;t<3;t++){
+    const f=await ghGet(path),cur=f?JSON.parse(f.text):null,next=mutate(cur);
+    try{await ghPut(path,JSON.stringify(next,null,1)+'\n',f&&f.sha,message);return next}
+    catch(e){if(e.status===409||e.status===422)continue;throw e}
+  }
+  throw new Error('Файл слишком часто меняется. Повторите через минуту.');
+}
+async function saveToken(){
+  const v=$('tokInput').value.trim();
+  if(!v){status('Вставьте токен.',true);return}
+  const ri=repoInfo();if(!ri){status('Не удалось определить репозиторий. Добавьте поле repo в config.json.',true);return}
+  status('Проверяю токен…');
+  try{
+    const r=await fetch('https://api.github.com/repos/'+ri.owner+'/'+ri.name,{headers:{Authorization:'Bearer '+v,Accept:'application/vnd.github+json'},cache:'no-store'});
+    if(!r.ok)throw ghErr(r);
+    const j=await r.json();
+    if(!(j.permissions&&j.permissions.push))throw new Error('У токена нет права записи в этот репозиторий.');
+    lsSet('tokEnc',JSON.stringify(await encTok(pwMem,v)));ghToken=v;$('tokInput').value='';
+    renderAdmin();status('Токен работает и сохранён (зашифрован вашим паролем).');
+  }catch(e){status('Ошибка: '+e.message,true)}
+}
+
+/* ---------- правка расписания ---------- */
+function startDraft(){if(!draftW){draftW=JSON.parse(JSON.stringify(cache[viewId]));baseUpdated=cache[viewId].updatedAt||''}}
+function normTime(s){
+  const m=String(s).trim().match(/^(\d{1,2})[:.](\d{2})\s*[-–—]\s*(\d{1,2})[:.](\d{2})$/);
+  return m?pad(+m[1])+':'+m[2]+'–'+pad(+m[3])+':'+m[4]:'';
+}
+function edmsg(t,err){const m=$('edMsg');m.textContent=t||'';m.style.color=err?'var(--err)':''}
+function openEd(day,i){
+  if(!cache[viewId]){note('Нет недели для правки.',true);return}
+  const l=i>=0?daysOf()[day][i]:{n:1,time:BELLS[0].join('–'),subject:'',teacher:'',room:'',type:''};
+  ed={day,i};
+  $('edWhere').textContent=DAYS[day]+(W().dates[day]?', '+W().dates[day].slice(0,5):'')+' · бригада '+brig;
+  $('edTitle').textContent=i>=0?'Изменить пару':'Новая пара';
+  $('edN').value=String(l.n||1);$('edTime').value=l.time||'';$('edSubj').value=l.subject||'';
+  $('edTeacher').value=l.teacher||'';$('edRoom').value=l.room||'';$('edType').value=l.type||'';
+  $('edDel').classList.toggle('hidden',i<0);edmsg('');
+  const m=$('edModal');m.classList.remove('hidden');
+  if(m.firstElementChild)restart(m.firstElementChild,'modal-in');
+  setTimeout(()=>$('edSubj').focus(),60);
+}
+function closeEd(){$('edModal').classList.add('hidden');ed=null}
+function applyEd(){
+  const subj=$('edSubj').value.trim(),t=normTime($('edTime').value);
+  if(!subj){edmsg('Укажите предмет.',true);return}
+  if(!t){edmsg('Время в формате 08:00–09:30.',true);return}
+  startDraft();
+  const b=draftW.brigades[brig]||(draftW.brigades[brig]=[[],[],[],[],[],[],[]]),arr=b[ed.day]||(b[ed.day]=[]);
+  const l={n:+$('edN').value,time:t,subject:subj,type:$('edType').value.trim(),teacher:$('edTeacher').value.trim(),room:$('edRoom').value.trim()};
+  if(ed.i<0)arr.push(l);else arr[ed.i]=l;
+  arr.sort((a,b)=>((tm(a)||[0])[0]-(tm(b)||[0])[0])||a.n-b.n);
+  closeEd();renderTabs();renderList();syncEditBar();renderHeader();
+}
+function deleteEd(){
+  if(!ed||ed.i<0)return;
+  startDraft();draftW.brigades[brig][ed.day].splice(ed.i,1);
+  closeEd();renderTabs();renderList();syncEditBar();renderHeader();
+}
+async function saveWeek(){
+  if(!draftW)return;
+  const btn=$('saveWeek');btn.disabled=true;status('Сохраняю в GitHub…');
+  const id=viewId,keep=$('keepEdited').checked,draft=draftW;
+  try{
+    const out=await ghUpdate('data/weeks/'+id+'.json',remote=>{
+      if(remote&&(remote.updatedAt||'')!==baseUpdated)throw new Error('Неделя изменилась на сервере (агент обновил её из PDF или правил другой админ). Отмените правки, обновите страницу и повторите.');
+      return{...draft,id,edited:keep,updatedAt:new Date().toISOString()};
+    },'Правка расписания: неделя '+id);
+    cache[id]=out;draftW=null;
+    if(id===curId)lsSet('sig',sigOf(id));
+    status('Сохранено. Сайт обновится у всех в течение пары минут (GitHub Pages публикует файлы с задержкой).');
+    renderAll();
+  }catch(e){btn.disabled=false;status('Ошибка: '+e.message,true)}
+}
+
+/* ---------- сообщения: публикация ---------- */
+async function addMessage(){
+  const text=$('mText').value.trim();
+  if(!text){status('Введите текст сообщения.',true);return}
+  const m={id:'m'+Date.now().toString(36),at:new Date().toISOString(),title:$('mTitle').value.trim().slice(0,80),text:text.slice(0,1500),pin:$('mPin').checked,src:'manual'};
+  const btn=$('mAdd');btn.disabled=true;status('Публикую сообщение…');
+  try{
+    const out=await ghUpdate('data/messages.json',cur=>{const c=cur||{items:[],hidden:[]};c.items=[m,...(c.items||[])].slice(0,100);c.hidden=c.hidden||[];return c},'Сообщение куратора');
+    msgs=out;lsSet('seen',latestAt(visibleMsgs()));
+    $('mTitle').value='';$('mText').value='';$('mPin').checked=false;
+    status('Сообщение опубликовано. Остальные увидят его в течение пары минут.');renderAll();
+  }catch(e){status('Ошибка: '+e.message,true)}
+  btn.disabled=false;
+}
+let delArm=null;
+async function delMessage(btn){
+  const id=btn.dataset.del;
+  if(delArm!==id){delArm=id;btn.textContent='Точно?';setTimeout(()=>{if(delArm===id){delArm=null;if(btn.isConnected)btn.textContent='Удалить'}},3000);return}
+  delArm=null;status('Удаляю сообщение…');
+  try{
+    const out=await ghUpdate('data/messages.json',cur=>{
+      const c=cur||{items:[],hidden:[]},it=(c.items||[]).find(x=>x.id===id);
+      c.hidden=c.hidden||[];
+      if(it&&it.src==='vk'){if(!c.hidden.includes(id))c.hidden.push(id)}   // запись со стены ВК: скрываем, иначе агент вернёт её
+      else c.items=(c.items||[]).filter(x=>x.id!==id);
+      return c;
+    },'Удаление сообщения');
+    msgs=out;status('Сообщение удалено.');renderAll();
+  }catch(e){status('Ошибка: '+e.message,true)}
+}
+async function changePw(){
+  const v=$('newPw').value;
+  if(v.length!==PW_LEN){status('Новый пароль — ровно '+PW_LEN+' символа (сейчас '+v.length+').',true);return}
+  status('Меняю пароль…');
+  try{
+    const salt=crypto.getRandomValues(new Uint8Array(16)),h=await pbk(v,salt,PW_ITER),pw={s:b64(salt),h:b64(h),i:PW_ITER};
+    const out=await ghUpdate('config.json',cur=>({...(cur||{}),pw}),'Смена пароля администратора');
+    cfg=out;pwMem=v;
+    if(ghToken)lsSet('tokEnc',JSON.stringify(await encTok(pwMem,ghToken)));
+    $('newPw').value='';status('Пароль изменён. Вход по новому паролю заработает через пару минут, когда GitHub опубликует файл.');
+  }catch(e){status('Ошибка: '+e.message,true)}
+}
+
+/* ---------- события ---------- */
+function bind(){
+  $('menu').addEventListener('click',e=>{const b=e.target.closest('[data-i]');if(b){ci=+b.dataset.i;openItem(ci)}});
+  $('menu').addEventListener('mouseover',e=>{const b=e.target.closest('[data-i]');if(b)moveCursor(+b.dataset.i)});
+  $('menu').addEventListener('focusin',e=>{const b=e.target.closest('[data-i]');if(b)moveCursor(+b.dataset.i)});
+  $('tabs').addEventListener('click',e=>{const b=e.target.closest('[data-i]');if(b)selectDay(+b.dataset.i)});
+  $('wPrev').addEventListener('click',()=>{const ids=idx.weeks,i=ids.indexOf(viewId);if(i>0)gotoWeek(ids[i-1])});
+  $('wNext').addEventListener('click',()=>{const ids=idx.weeks,i=ids.indexOf(viewId);if(i>=0&&i<ids.length-1)gotoWeek(ids[i+1])});
+  $('wLabel').addEventListener('click',()=>{const l=$('wList'),open=l.classList.toggle('hidden')===false;$('wLabel').setAttribute('aria-expanded',open)});
+  $('wList').addEventListener('click',e=>{const b=e.target.closest('[data-w]');if(b)gotoWeek(b.dataset.w)});
+  $('list').addEventListener('click',e=>{const b=e.target.closest('[data-edit]');if(b)openEd(active,+b.dataset.edit)});
+  $('addLesson').addEventListener('click',()=>openEd(active,-1));
+  $('msgList').addEventListener('click',e=>{const b=e.target.closest('[data-del]');if(b)delMessage(b)});
+  $('backBtn').addEventListener('click',()=>go('home'));
+  $('brigBtn').addEventListener('click',cycleBrig);
+  $('themeBtn').addEventListener('click',()=>setTheme(document.documentElement.dataset.theme==='night'?'day':'night'));
+  $('notifBtn').addEventListener('click',toggleNotif);
+
+  $('pwInput').addEventListener('input',()=>{pwUpdate();pwMsg('')});
+  $('pwInput').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();submitPw()}});
+  $('pwOk').addEventListener('click',submitPw);
+  $('pwCancel').addEventListener('click',closePw);
+  $('pwEye').addEventListener('click',()=>{const i=$('pwInput'),h=i.type==='password';i.type=h?'text':'password';$('pwEye').textContent=h?'Скрыть':'Показать';i.focus()});
+  $('pwModal').addEventListener('mousedown',e=>{if(e.target===$('pwModal'))closePw()});
+
+  $('edOk').addEventListener('click',applyEd);
+  $('edDel').addEventListener('click',deleteEd);
+  $('edCancel').addEventListener('click',closeEd);
+  $('edN').addEventListener('change',()=>{
+    const t=$('edTime').value.trim(),isBell=!t||BELLS.some(b=>normTime(t)===normTime(b.join('–')));
+    if(isBell)$('edTime').value=BELLS[+$('edN').value-1].join('–');
+  });
+  $('edModal').addEventListener('mousedown',e=>{if(e.target===$('edModal'))closeEd()});
+
+  $('adminBtn').addEventListener('click',()=>{if(!unlocked){openPw();return}$('admin').classList.toggle('hidden')});
+  $('tokSave').addEventListener('click',saveToken);
+  $('editToggle').addEventListener('click',()=>{editMode=!editMode;renderAdmin();if(view==='schedule'){renderList();syncEditBar()}else note('Режим правки '+(editMode?'включён':'выключен')+'. Откройте «Расписание».')});
+  $('saveWeek').addEventListener('click',saveWeek);
+  $('discardWeek').addEventListener('click',()=>{draftW=null;status('Правки отменены.');renderAll()});
+  $('mAdd').addEventListener('click',addMessage);
+  $('pwChange').addEventListener('click',changePw);
+  $('lockBtn').addEventListener('click',lockAdmin);
+
+  document.addEventListener('keydown',e=>{
+    if(e.key==='Escape'&&ed){closeEd();return}
+    if(e.key==='Escape'&&pwOpen()){closePw();return}
+    if(pwOpen()||ed)return;
+    if(e.target.matches('input,textarea,select'))return;
+    if(e.key==='Escape'&&view!=='home'){go('home');return}
+    if(view==='home'){
+      if(e.key==='ArrowDown'){e.preventDefault();moveCursor(ci+1)}
+      else if(e.key==='ArrowUp'){e.preventDefault();moveCursor(ci-1)}
+      else if(e.key==='Enter'){e.preventDefault();openItem(ci)}
+    }else if(view==='schedule'){
+      if(e.key==='ArrowRight')selectDay(active+1,!!e.target.closest('#tabs'));
+      if(e.key==='ArrowLeft')selectDay(active-1,!!e.target.closest('#tabs'));
+    }
+  });
+  let sx=null;
+  $('panel').addEventListener('touchstart',e=>{sx=e.touches[0].clientX},{passive:true});
+  $('panel').addEventListener('touchend',e=>{if(sx===null)return;const dx=e.changedTouches[0].clientX-sx;sx=null;if(Math.abs(dx)>60)selectDay(active+(dx<0?1:-1))},{passive:true});
+
+  const pb=$('playBtn');
+  const sync=()=>{pb.textContent=Music.playing?'❚❚':'▶';pb.setAttribute('aria-label',Music.playing?'Пауза':'Играть музыку');$('player').classList.toggle('playing',Music.playing);$('trackName').textContent=Music.name};
+  pb.addEventListener('click',()=>{Music.playing?Music.pause():Music.play();sync()});
+  $('nextBtn').addEventListener('click',()=>{Music.next();sync()});
+  $('vol').addEventListener('input',e=>Music.volume(+e.target.value));
+  sync();
+}
+
+/* ---------- старт ---------- */
+async function boot(){
+  setTheme(initialTheme());
+  buildUI();
+  setTheme(document.documentElement.dataset.theme);
+  bind();
+  $('title').textContent='Загрузка…';
+  await loadAll();
+  pickBrigade();
+  active=Math.max(0,todayIdx());
+  const changes=detectChanges();
+  show('home');
+  if(changes.length)setTimeout(()=>{changes.forEach(toast);sysNotify(changes)},1000);
+  window.addEventListener('resize',()=>{if(view==='home')placeBar(true)});
+  setInterval(()=>{if(view==='schedule')renderList();else if(view==='home')renderDetail()},60000);
+  setInterval(poll,300000);
+}
+boot();
+
+</script>
+</body>
+</html>
