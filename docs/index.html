@@ -117,6 +117,12 @@ input[type=range]{accent-color:var(--ink);width:5rem}
 .wi{display:flex;justify-content:space-between;gap:.75rem;width:100%;text-align:left;padding:.65rem .8rem;color:var(--ink);cursor:pointer;font-family:'IBM Plex Mono',monospace;font-size:.85rem;transition:background .12s,color .12s}
 .wi:hover{background:var(--tabhov)}
 .wi[aria-current="true"]{background:var(--ink);color:var(--on)}
+/* ---- список треков, создатели ---- */
+#tracklist{position:fixed;z-index:22;right:.75rem;left:.75rem;margin-left:auto;max-width:25.5rem;bottom:calc(4.7rem + env(safe-area-inset-bottom,0px));max-height:50vh;overflow:auto;box-shadow:0 0 0 1px var(--ink)}
+#tracklist.hidden{display:none}
+#tracklist .wi{flex:1;min-width:0}
+.glitch{display:inline-block}
+.glitch:hover{animation:glitch .4s steps(1,end) 1}
 </style>
 </head>
 <body class="font-head antialiased">
@@ -141,51 +147,160 @@ function initialTheme(){
 }
 
 
-/* ---------- музыка (генерируется в браузере) ---------- */
+/* ---------- музыка ---------- */
+// Если в docs/music/playlist.json есть треки, играют они (настоящие аудиофайлы).
+// Иначе играют четыре встроенных фоновых трека, которые генерируются прямо в браузере.
 const Music=(()=>{
-  const T=[
-    {n:'Пустошь',r:110,s:[0,3,5,7,10],c:[[0,7,12,15],[-4,3,8,12],[3,10,15,19],[-2,5,10,14]]},
-    {n:'Сад',r:130.81,s:[0,2,4,7,9],c:[[0,7,12,16],[-3,4,9,12],[-7,0,5,9],[-5,2,7,11]]},
-    {n:'Ночь',r:73.42,s:[0,3,5,7,10],c:[[0,7,12,15],[-2,5,10,14],[5,12,17,20],[-5,2,7,10]]}
-  ];
-  let ctx,out,rev,vol=.5,i=0,on=false,step=0,tc,tp;
+  let ctx,out,rev,noiseB,tg=null,tsend=null,nodes=[],clears=[],runId=0,errRun=0;
+  let vol=.5,i=0,on=false,audio=null,tracks=[],onchange=()=>{};
   const f=(r,n)=>r*Math.pow(2,n/12);
+  const rnd=(a,b)=>a+Math.random()*(b-a);
+  const pick=a=>a[Math.floor(Math.random()*a.length)];
+
   function init(){
-    ctx=new(window.AudioContext||window.webkitAudioContext)();
-    out=ctx.createGain();out.gain.value=0;out.connect(ctx.destination);
+    const AC=window.AudioContext||window.webkitAudioContext;
+    if(!AC)throw new Error('Аудио недоступно в этом браузере');
+    ctx=new AC();out=ctx.createGain();out.gain.value=0;out.connect(ctx.destination);
     rev=ctx.createConvolver();
-    const len=ctx.sampleRate*3.5,b=ctx.createBuffer(2,len,ctx.sampleRate);
+    const len=Math.floor(ctx.sampleRate*3.5),b=ctx.createBuffer(2,len,ctx.sampleRate);
     for(let c=0;c<2;c++){const d=b.getChannelData(c);for(let k=0;k<len;k++)d[k]=(Math.random()*2-1)*Math.pow(1-k/len,3)}
     rev.buffer=b;const rg=ctx.createGain();rg.gain.value=.8;rev.connect(rg);rg.connect(out);
+    const nl=Math.floor(ctx.sampleRate*2);noiseB=ctx.createBuffer(1,nl,ctx.sampleRate);
+    const nd=noiseB.getChannelData(0);for(let k=0;k<nl;k++)nd[k]=Math.random()*2-1;
   }
   function env(g,t,a,peak,hold,rel){
     g.gain.setValueAtTime(.0001,t);g.gain.exponentialRampToValueAtTime(peak,t+a);
     g.gain.setValueAtTime(peak,t+a+hold);g.gain.exponentialRampToValueAtTime(.0001,t+a+hold+rel);
   }
-  function pad(){
-    const t=ctx.currentTime,tr=T[i],ch=tr.c[step++%tr.c.length];
-    ch.forEach(n=>[-5,5].forEach(dt=>{
-      const o=ctx.createOscillator(),g=ctx.createGain(),lp=ctx.createBiquadFilter();
-      o.type='triangle';o.frequency.value=f(tr.r,n);o.detune.value=dt;lp.type='lowpass';lp.frequency.value=700;
-      env(g,t,3,.045,2,4);o.connect(lp);lp.connect(g);g.connect(out);g.connect(rev);o.start(t);o.stop(t+9.5);
-    }));
+  // один голос: тон с огибающей, фильтром и отправкой в реверберацию
+  function tone(freq,t,o){
+    if(!tg)return;
+    const osc=ctx.createOscillator(),g=ctx.createGain();
+    osc.type=o.type||'sine';osc.frequency.value=freq;if(o.det)osc.detune.value=o.det;
+    let node=osc;
+    if(o.lp){const lp=ctx.createBiquadFilter();lp.type='lowpass';lp.frequency.value=o.lp;osc.connect(lp);node=lp}
+    node.connect(g);env(g,t,o.a||.01,o.peak,o.hold||0,o.rel);g.connect(tg);
+    if(o.send){const s=ctx.createGain();s.gain.value=o.send;g.connect(s);s.connect(tsend)}
+    osc.start(t);osc.stop(t+(o.a||.01)+(o.hold||0)+o.rel+.1);
   }
-  function pluck(){
-    const t=ctx.currentTime,tr=T[i],n=tr.s[Math.floor(Math.random()*tr.s.length)]+12*(1+Math.floor(Math.random()*2));
-    const o=ctx.createOscillator(),g=ctx.createGain();
-    o.type='sine';o.frequency.value=f(tr.r,n);env(g,t,.015,.11,0,2.6);
-    o.connect(g);g.connect(out);g.connect(rev);o.start(t);o.stop(t+3);
+  const noise=()=>{const s=ctx.createBufferSource();s.buffer=noiseB;s.loop=true;return s};
+  const filt=(type,fr,q)=>{const b=ctx.createBiquadFilter();b.type=type;b.frequency.value=fr;if(q)b.Q.value=q;return b};
+  function tick(fn,ms){fn();const id=setInterval(fn,ms);clears.push(()=>clearInterval(id))}
+  function loop(fn,min,max){
+    const my=runId;let tmo;
+    const step=()=>{if(my!==runId)return;fn();tmo=setTimeout(step,rnd(min,max))};
+    clears.push(()=>clearTimeout(tmo));step();
   }
-  function nxt(){if(!on)return;if(Math.random()<.7)pluck();tp=setTimeout(nxt,1200+Math.random()*2600)}
-  function loop(){clearInterval(tc);clearTimeout(tp);step=0;pad();tc=setInterval(pad,7000);nxt()}
-  return{
+
+  // четыре разных трека: разный лад, темп, тембр и фактура
+  const GEN=[
+    {name:'Пустошь',start(){            // медленные пэды и редкие одиночные ноты
+      const r=110,s=[0,3,5,7,10],c=[[0,7,12,15],[-4,3,8,12],[3,10,15,19],[-2,5,10,14]];let step=0;
+      tick(()=>{const t=ctx.currentTime,ch=c[step++%c.length];
+        ch.forEach(n=>[-5,5].forEach(d=>tone(f(r,n),t,{type:'triangle',det:d,lp:700,peak:.045,a:3,hold:2,rel:4,send:1})))},7000);
+      loop(()=>{if(Math.random()<.7)tone(f(r,pick(s)+12*pick([1,2])),ctx.currentTime,{peak:.11,a:.015,rel:2.6,send:1})},1200,3800);
+    }},
+    {name:'Сад',start(){                // музыкальная шкатулка: ровное арпеджио, ярче и быстрее
+      const r=261.63,prog=[[0,4,7,12],[-3,0,4,9],[-7,-3,0,5],[-5,-1,2,7]],pat=[0,1,2,3,2,1,3,2];let k=0;
+      tick(()=>{
+        const t=ctx.currentTime,bar=Math.floor(k/8)%prog.length,ch=prog[bar],st=k%8;
+        if(st===0)tone(f(r/2,ch[0]),t,{peak:.06,a:.4,hold:1.4,rel:1.6,send:.6});
+        if(Math.random()<.9){const fr=f(r,ch[pat[st]]+12);
+          tone(fr,t,{peak:.085,a:.005,rel:1.7,send:.8});
+          tone(fr*2.76,t,{type:'triangle',peak:.016,a:.003,rel:.5,send:.5})}
+        k++;
+      },330);
+    }},
+    {name:'Ночь',start(){               // глубокий дрон, ветер и очень редкие низкие ноты
+      const r=36.71,s=[0,3,5,7,10];
+      tick(()=>{const t=ctx.currentTime;
+        [0,7,12].forEach((n,j)=>tone(f(r,n),t,{type:'sawtooth',lp:260,det:j*4,peak:.034-j*.007,a:5,hold:6,rel:6,send:.5}))},12000);
+      const src=noise(),bp=filt('bandpass',500,.8),wg=ctx.createGain();wg.gain.value=.035;
+      const lfo=ctx.createOscillator(),lg=ctx.createGain();lfo.frequency.value=.08;lg.gain.value=260;
+      lfo.connect(lg);lg.connect(bp.frequency);src.connect(bp);bp.connect(wg);wg.connect(tg);
+      src.start();lfo.start();nodes.push(src,lfo);
+      loop(()=>tone(f(146.83,pick(s)),ctx.currentTime,{peak:.1,a:.04,rel:5,send:1.2}),3500,8500);
+    }},
+    {name:'Дождь',start(){              // шум дождя, капли и тёплый пэд
+      const src=noise(),hp=filt('highpass',1100),lp=filt('lowpass',7000),rg=ctx.createGain();rg.gain.value=.05;
+      src.connect(hp);hp.connect(lp);lp.connect(rg);rg.connect(tg);src.start();nodes.push(src);
+      loop(()=>tone(rnd(1800,3600),ctx.currentTime,{peak:rnd(.012,.035),a:.002,rel:.12,send:.5}),110,650);
+      const c=[[0,7,12,15],[-4,3,8,12],[-2,5,10,14]];let step=0;
+      tick(()=>{const t=ctx.currentTime,ch=c[step++%c.length];
+        ch.forEach(n=>tone(f(110,n),t,{type:'triangle',lp:600,peak:.03,a:3.5,hold:2,rel:4.5,send:.8}))},10000);
+      loop(()=>tone(f(220,pick([0,3,7,10,12])),ctx.currentTime,{peak:.07,a:.01,rel:2.2,send:1}),4000,9000);
+    }}
+  ];
+
+  function stopGen(){
+    runId++;clears.forEach(c=>c());clears=[];
+    const oldTg=tg,oldTs=tsend,oldNodes=nodes;tg=null;tsend=null;nodes=[];
+    if(oldTg){
+      oldTg.gain.setTargetAtTime(0,ctx.currentTime,.25);oldTs.gain.setTargetAtTime(0,ctx.currentTime,.25);
+      setTimeout(()=>{oldNodes.forEach(n=>{try{n.stop()}catch(e){}});try{oldTg.disconnect();oldTs.disconnect()}catch(e){}},1600);
+    }
+  }
+  function startGen(t){
+    if(!ctx)init();
+    ctx.resume();stopGen();
+    tg=ctx.createGain();tg.connect(out);tsend=ctx.createGain();tsend.connect(rev);
+    out.gain.cancelScheduledValues(ctx.currentTime);out.gain.setTargetAtTime(vol,ctx.currentTime,.8);
+    t.gen.start();
+  }
+  function startFile(t){
+    if(!audio){
+      audio=new Audio();audio.preload='auto';
+      audio.addEventListener('ended',()=>api.next());
+      audio.addEventListener('playing',()=>{errRun=0});
+      audio.addEventListener('error',()=>{        // файл не найден или не воспроизводится — пропускаем
+        if(!on||tracks[i].kind!=='file')return;
+        if(++errRun>=tracks.length){on=false;errRun=0;onchange();return}
+        api.next();
+      });
+    }
+    const url=t.url;
+    if(audio._u!==url){audio.src=url;audio._u=url}
+    audio.volume=vol;
+    const p=audio.play();if(p&&p.catch)p.catch(()=>{on=false;onchange()});
+  }
+  function halt(){
+    if(audio&&!audio.paused)audio.pause();
+    if(ctx&&tg)stopGen();
+  }
+  function setTracks(list){
+    tracks=list&&list.length?list.map(x=>({name:x.title||x.file,kind:'file',url:'music/'+encodeURIComponent(x.file)}))
+                            :GEN.map(g=>({name:g.name,kind:'gen',gen:g}));
+    if(i>=tracks.length)i=0;
+  }
+  setTracks([]);
+
+  const api={
     get playing(){return on},
-    get name(){return T[i].n},
-    play(){if(!ctx)init();ctx.resume();on=true;out.gain.cancelScheduledValues(ctx.currentTime);out.gain.setTargetAtTime(vol,ctx.currentTime,.8);loop()},
-    pause(){on=false;clearInterval(tc);clearTimeout(tp);out.gain.setTargetAtTime(0,ctx.currentTime,.4);setTimeout(()=>{if(!on)ctx.suspend()},1800)},
-    next(){i=(i+1)%T.length;if(on)loop()},
-    volume(v){vol=v;if(ctx&&on)out.gain.setTargetAtTime(v,ctx.currentTime,.1)}
+    get name(){return tracks[i]?tracks[i].name:''},
+    get index(){return i},
+    get count(){return tracks.length},
+    get names(){return tracks.map(t=>t.name)},
+    get kind(){return tracks[i]?tracks[i].kind:'gen'},
+    set onchange(fn){onchange=fn},
+    setFiles(list){halt();on=false;i=0;errRun=0;if(ctx&&out)out.gain.setTargetAtTime(0,ctx.currentTime,.1);setTracks(list);onchange()},
+    play(){
+      const t=tracks[i];if(!t)return;
+      on=true;
+      try{t.kind==='file'?startFile(t):startGen(t)}catch(e){on=false}
+      onchange();
+    },
+    pause(){
+      on=false;
+      if(audio&&!audio.paused)audio.pause();
+      if(ctx&&tg){stopGen();out.gain.setTargetAtTime(0,ctx.currentTime,.4);setTimeout(()=>{if(!on&&ctx)ctx.suspend()},1800)}
+      onchange();
+    },
+    select(k){if(k<0||k>=tracks.length)return;halt();i=k;api.play()},
+    next(){halt();i=(i+1)%tracks.length;if(on)api.play();else onchange()},
+    prev(){halt();i=(i-1+tracks.length)%tracks.length;if(on)api.play();else onchange()},
+    volume(v){vol=v;if(audio)audio.volume=v;if(ctx&&on&&tg)out.gain.setTargetAtTime(v,ctx.currentTime,.1)}
   };
+  return api;
 })();
 
 
@@ -370,6 +485,10 @@ function buildUI(){
       <button id="mAdd" class="btn cut-sm">Опубликовать сообщение</button>
     </div>
 
+    <h3 class="font-bold tracking-wide mt-5">Музыка</h3>
+    <p class="font-mono text-xs muted mt-1 leading-relaxed">Добавьте свои треки (mp3, ogg, m4a, wav, до 20 МБ). Пока в списке нет ваших треков, играет встроенная фоновая музыка. Убрать трек можно в списке плеера.</p>
+    <label class="btn btn-o cut-sm mt-2">Добавить трек<input id="trkFile" type="file" accept="audio/*,.mp3,.ogg,.m4a,.wav,.opus" class="hidden"></label>
+
     <h3 class="font-bold tracking-wide mt-5">Пароль администратора</h3>
     <div class="flex flex-wrap items-center gap-2 mt-2">
       <input id="newPw" type="password" maxlength="32" autocomplete="off" spellcheck="false" placeholder="Новый пароль, 32 символа" class="field flex-1 min-w-[12rem] px-2 py-1.5 text-sm">
@@ -414,6 +533,14 @@ function buildUI(){
     <section id="v-messages" class="view hidden">
       <div id="msgList" class="flex flex-col gap-3"></div>
     </section>
+
+    <section id="v-credits" class="view hidden">
+      <div class="brk panel p-6 sm:p-10">
+        <div class="flex items-center gap-2 font-mono text-xs muted"><span class="sq"></span><span>Создатель сайта</span></div>
+        <div class="glitch text-4xl sm:text-6xl font-bold tracking-[0.1em] mt-4 break-all">Que95_</div>
+        <div class="rule mt-6"></div><div class="rule2"></div>
+      </div>
+    </section>
   </div>
 
   <footer class="mt-10 pt-3 border-t font-mono text-[11px] muted flex flex-wrap items-center justify-between gap-2" style="border-color:color-mix(in srgb,var(--ink) 40%,transparent)">
@@ -425,26 +552,29 @@ function buildUI(){
   <p id="note" class="font-mono text-xs mt-2 min-h-[1rem]" role="status"></p>
 </main>
 
-<div id="player"><div class="bar2 cut-sm flex items-center gap-3 px-3 py-2">
-  <button id="playBtn" class="btn w-10 h-10 !p-0 flex items-center justify-center" aria-label="Играть музыку">▶</button>
-  <div class="min-w-0 flex-1">
+<div id="tracklist" class="hidden panel" role="listbox" aria-label="Список треков"></div>
+<div id="player"><div class="bar2 cut-sm flex items-center gap-2 px-3 py-2">
+  <button id="playBtn" class="btn w-10 h-10 !p-0 flex items-center justify-center shrink-0" aria-label="Играть музыку">▶</button>
+  <button id="trackBtn" class="min-w-0 flex-1 text-left" aria-expanded="false" aria-controls="tracklist" aria-label="Список треков">
     <div id="trackName" class="font-bold tracking-wide text-sm truncate"></div>
-    <div class="flex items-center gap-2 muted font-mono text-[10px]"><span class="eq"><i></i><i></i><i></i></span>эмбиент</div>
-  </div>
-  <button id="nextBtn" class="btn btn-o w-9 h-9 !p-0 flex items-center justify-center" aria-label="Следующий трек">⏭</button>
+    <div class="flex items-center gap-2 muted font-mono text-[10px]"><span class="eq"><i></i><i></i><i></i></span><span id="trackSub"></span></div>
+  </button>
+  <button id="prevBtn" class="btn btn-o w-9 h-9 !p-0 flex items-center justify-center shrink-0" aria-label="Предыдущий трек">⏮</button>
+  <button id="nextBtn" class="btn btn-o w-9 h-9 !p-0 flex items-center justify-center shrink-0" aria-label="Следующий трек">⏭</button>
   <input id="vol" type="range" min="0" max="1" step="0.05" value="0.5" aria-label="Громкость">
 </div></div>`;
 }
 
 /* ---------- шапка ---------- */
-const LABEL={home:'Главная',schedule:'Расписание',messages:'Сообщения'};
+const LABEL={home:'Главная',schedule:'Расписание',messages:'Сообщения',credits:'Создатели'};
 function renderHeader(){
   $('crumb').textContent=view==='home'?'Главная':'Главная › '+LABEL[view];
   $('title').textContent=view==='home'?'Группа '+(groupName()||'—'):LABEL[view];
   const s=$('sub');
   if(view==='home')s.textContent=loadError?'Не удалось загрузить данные':'Выберите раздел';
   else if(view==='schedule')s.textContent=viewId?weekMeta(viewId,W()):'Расписание не загружено';
-  else s.textContent='От куратора группы '+groupName();
+  else if(view==='messages')s.textContent='От куратора группы '+groupName();
+  else s.textContent='Кто сделал этот сайт';
   $('backBtn').classList.toggle('hidden',view==='home');
   $('brigBtn').classList.toggle('hidden',!(view==='schedule'&&keys().length>1));
   $('brigBtn').textContent='⇄ Бригада '+brig;
@@ -460,7 +590,8 @@ function menuItems(){
   const n=newCount(),w=cache[curId];
   return[
     {id:'schedule',t:'Расписание',s:w&&w.week?w.week+' · бригада '+brig:'Пары по дням недели',badge:unseenSched()?'новое':''},
-    {id:'messages',t:'Сообщения от куратора',s:visibleMsgs().length?'Всего сообщений: '+visibleMsgs().length:'Пока пусто',badge:n?n+' нов.':''}
+    {id:'messages',t:'Сообщения от куратора',s:visibleMsgs().length?'Всего сообщений: '+visibleMsgs().length:'Пока пусто',badge:n?n+' нов.':''},
+    {id:'credits',t:'Создатели',s:'Кто сделал этот сайт',badge:''}
   ];
 }
 function placeBar(instant){
@@ -500,6 +631,8 @@ function detailLines(id){
         else L.push('На сегодня всё.');
       }
     }
+  }else if(id==='credits'){
+    L.push('<span class="font-mono text-xs muted">Создатели</span>','Создатель сайта','<b>Que95_</b>');
   }else{
     L.push('<span class="font-mono text-xs muted">Сообщения от куратора</span>');
     const ms=visibleMsgs().sort((a,b)=>a.at<b.at?1:-1),n=newCount();
@@ -668,14 +801,14 @@ function restart(el,cls){el.classList.remove(cls);void el.offsetWidth;el.classLi
 function renderView(){
   if(view==='home')renderMenu();
   else if(view==='schedule'){renderWeekNav();renderTabs();renderList();syncEditBar()}
-  else renderMessages();
+  else if(view==='messages')renderMessages();
 }
 function renderAll(){pickBrigade();renderHeader();renderView();updateTitle()}
 function show(v){
   view=v;
   if(v==='home'&&!draftW){viewId=curId;active=Math.max(0,todayIdx())}
   pickBrigade();
-  ['home','schedule','messages'].forEach(x=>$('v-'+x).classList.toggle('hidden',x!==v));
+  ['home','schedule','messages','credits'].forEach(x=>$('v-'+x).classList.toggle('hidden',x!==v));
   restart($('v-'+v),'view');
   restart($('title'),v==='home'?'flick':'glitch-in');
   restart($('rule'),'draw');
@@ -751,7 +884,7 @@ async function submitPw(){
 function setAdmin(){
   isAdmin=unlocked;
   if(!isAdmin){$('admin').classList.add('hidden');editMode=false}
-  renderAdmin();renderHeader();renderView();
+  renderAdmin();renderHeader();renderView();renderTracks();
 }
 function lockAdmin(){
   if(draftW&&!confirmDiscard())return;
@@ -934,6 +1067,52 @@ async function changePw(){
   }catch(e){status('Ошибка: '+e.message,true)}
 }
 
+/* ---------- плеер: список треков и загрузка ---------- */
+function renderTracks(){
+  const L=$('tracklist');if(!L)return;
+  L.innerHTML=Music.names.map((n,k)=>`<div class="flex items-center">
+    <button class="wi" role="option" data-t="${k}" aria-selected="${k===Music.index}" aria-current="${k===Music.index}"><span class="truncate">${k+1}. ${esc(n)}</span><span class="font-mono text-[11px] opacity-70 shrink-0">${k===Music.index&&Music.playing?'играет':''}</span></button>
+    ${isAdmin&&Music.kind==='file'?`<button class="chip px-2 mx-1 text-xs shrink-0" data-rm="${k}">Убрать</button>`:''}</div>`).join('');
+}
+function syncPlayer(){
+  const pb=$('playBtn');if(!pb)return;
+  pb.textContent=Music.playing?'❚❚':'▶';
+  pb.setAttribute('aria-label',Music.playing?'Пауза':'Играть музыку');
+  $('player').classList.toggle('playing',Music.playing);
+  $('trackName').textContent=Music.name;
+  $('trackSub').textContent=(Music.kind==='file'?'трек':'эмбиент')+' · '+(Music.index+1)+' из '+Music.count+' ▾';
+  renderTracks();
+}
+const bufB64=buf=>{const b=new Uint8Array(buf);let s='';for(let i=0;i<b.length;i+=0x8000)s+=String.fromCharCode.apply(null,b.subarray(i,i+0x8000));return btoa(s)};
+async function ghPutB64(path,b64,message){
+  const ri=repoInfo();if(!ri)throw new Error('Не удалось определить репозиторий. Добавьте поле repo в config.json.');
+  const r=await ghReq('https://api.github.com/repos/'+ri.owner+'/'+ri.name+'/contents/'+ri.dir+'/'+path,{method:'PUT',body:JSON.stringify({message,content:b64,branch:ri.branch})});
+  if(!r.ok)throw ghErr(r);
+}
+async function uploadTrack(file){
+  if(file.size>20*1024*1024){status('Файл больше 20 МБ.',true);return}
+  const ext=(file.name.match(/\.(mp3|ogg|m4a|wav|opus)$/i)||[''])[0].toLowerCase();
+  if(!ext){status('Нужен аудиофайл: mp3, ogg, m4a или wav.',true);return}
+  const base=file.name.slice(0,-ext.length),safe=base.replace(/[^A-Za-z0-9_-]+/g,'_').replace(/^_+|_+$/g,'').slice(0,40)||'track';
+  const name=Date.now().toString(36)+'_'+safe+ext,title=base.replace(/_+/g,' ').trim().slice(0,60)||'Трек';
+  status('Загружаю «'+title+'»…');
+  try{
+    await ghPutB64('music/'+name,bufB64(await file.arrayBuffer()),'Музыка: '+title);
+    const out=await ghUpdate('music/playlist.json',cur=>{const c=cur||{tracks:[]};c.tracks=[...(c.tracks||[]),{title,file:name}];return c},'Плейлист: '+title);
+    Music.setFiles(out.tracks);
+    status('Трек добавлен. У всех появится через пару минут: GitHub Pages публикует файлы с задержкой.');
+  }catch(e){status('Ошибка: '+e.message,true)}
+}
+let rmArm=null;
+async function removeTrack(k,btn){
+  if(rmArm!==k){rmArm=k;btn.textContent='Точно?';setTimeout(()=>{if(rmArm===k){rmArm=null;if(btn.isConnected)btn.textContent='Убрать'}},3000);return}
+  rmArm=null;status('Убираю трек из списка…');
+  try{
+    const out=await ghUpdate('music/playlist.json',cur=>{const c=cur||{tracks:[]};c.tracks=(c.tracks||[]).filter((_,j)=>j!==k);return c},'Плейлист: убран трек');
+    Music.setFiles(out.tracks);status('Трек убран из списка. Файл остался в репозитории, его можно удалить на GitHub.');
+  }catch(e){status('Ошибка: '+e.message,true)}
+}
+
 /* ---------- события ---------- */
 function bind(){
   $('menu').addEventListener('click',e=>{const b=e.target.closest('[data-i]');if(b){ci=+b.dataset.i;openItem(ci)}});
@@ -996,12 +1175,18 @@ function bind(){
   $('panel').addEventListener('touchstart',e=>{sx=e.touches[0].clientX},{passive:true});
   $('panel').addEventListener('touchend',e=>{if(sx===null)return;const dx=e.changedTouches[0].clientX-sx;sx=null;if(Math.abs(dx)>60)selectDay(active+(dx<0?1:-1))},{passive:true});
 
-  const pb=$('playBtn');
-  const sync=()=>{pb.textContent=Music.playing?'❚❚':'▶';pb.setAttribute('aria-label',Music.playing?'Пауза':'Играть музыку');$('player').classList.toggle('playing',Music.playing);$('trackName').textContent=Music.name};
-  pb.addEventListener('click',()=>{Music.playing?Music.pause():Music.play();sync()});
-  $('nextBtn').addEventListener('click',()=>{Music.next();sync()});
+  $('playBtn').addEventListener('click',()=>{Music.playing?Music.pause():Music.play()});
+  $('nextBtn').addEventListener('click',()=>Music.next());
+  $('prevBtn').addEventListener('click',()=>Music.prev());
   $('vol').addEventListener('input',e=>Music.volume(+e.target.value));
-  sync();
+  $('trackBtn').addEventListener('click',()=>{const l=$('tracklist'),open=l.classList.toggle('hidden')===false;$('trackBtn').setAttribute('aria-expanded',open)});
+  $('tracklist').addEventListener('click',e=>{
+    const rm=e.target.closest('[data-rm]');if(rm){removeTrack(+rm.dataset.rm,rm);return}
+    const b=e.target.closest('[data-t]');if(b)Music.select(+b.dataset.t);
+  });
+  $('trkFile').addEventListener('change',e=>{const f=e.target.files[0];if(f)uploadTrack(f);e.target.value=''});
+  Music.onchange=syncPlayer;
+  syncPlayer();
 }
 
 /* ---------- старт ---------- */
@@ -1012,6 +1197,7 @@ async function boot(){
   bind();
   $('title').textContent='Загрузка…';
   await loadAll();
+  try{const pl=await getJSON('music/playlist.json');Music.setFiles(pl.tracks||[])}catch(e){}
   pickBrigade();
   active=Math.max(0,todayIdx());
   const changes=detectChanges();
