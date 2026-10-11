@@ -143,6 +143,17 @@ input[type=range]{accent-color:var(--ink);width:5rem}
 .card.sel{background:var(--ink);color:var(--on);transform:translateY(-3px)}
 .card.red.sel{color:var(--on)}
 .cnt{position:absolute;left:50%;bottom:-1.25rem;transform:translateX(-50%);font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--mut)}
+
+/* ---- слоты, прыжки ---- */
+.slmachine{--cell:clamp(54px,17vw,80px)}
+.reels{position:relative;display:flex;gap:6px}
+.reel{width:var(--cell);height:calc(var(--cell)*3);overflow:hidden;background:var(--bg);box-shadow:inset 0 0 0 1px var(--ink)}
+.strip{will-change:transform}
+.sy{height:var(--cell);display:flex;align-items:center;justify-content:center;font-family:'IBM Plex Mono',monospace;font-weight:700;font-size:calc(var(--cell)*.52);color:var(--ink);opacity:.55}
+.sy.mid{opacity:1}
+.payline{position:absolute;left:-5px;right:-5px;top:var(--cell);height:var(--cell);box-shadow:0 0 0 2px var(--ink);pointer-events:none}
+.payline.win{background:color-mix(in srgb,var(--ink) 14%,transparent);animation:blink 1s steps(2,jump-none) 4}
+#jCanvas{display:block;margin:0 auto;box-shadow:0 0 0 1px var(--ink);touch-action:none;background:var(--bg);max-width:100%;-webkit-user-select:none;user-select:none}
 </style>
 </head>
 <body class="font-head antialiased">
@@ -567,6 +578,16 @@ function buildUI(){
           <p class="font-mono text-xs mt-1 opacity-80">Разложите карты по мастям от туза до короля</p>
           <p id="gBestS" class="font-mono text-[11px] muted mt-2"></p>
         </button>
+        <button data-g="slots" class="lesson cut rev text-left pl-5 pr-4 py-4" style="--i:2">
+          <h3 class="text-xl font-bold tracking-wider">Слоты</h3>
+          <p class="font-mono text-xs mt-1 opacity-80">Три барабана на виртуальные очки</p>
+          <p id="gBestL" class="font-mono text-[11px] muted mt-2"></p>
+        </button>
+        <button data-g="jump" class="lesson cut rev text-left pl-5 pr-4 py-4" style="--i:3">
+          <h3 class="text-xl font-bold tracking-wider">Дудл-джамп</h3>
+          <p class="font-mono text-xs mt-1 opacity-80">Прыгайте по платформам как можно выше</p>
+          <p id="gBestJ" class="font-mono text-[11px] muted mt-2"></p>
+        </button>
       </div>
 
       <div id="gMines" class="hidden">
@@ -602,6 +623,41 @@ function buildUI(){
         </div>
         <div id="sBoard" style="touch-action:manipulation"></div>
         <p class="font-mono text-[11px] muted mt-3 leading-relaxed">Нажмите на карту, затем на место, куда её положить: красные кладутся на чёрные и наоборот, по убыванию. Двойное нажатие отправляет карту на основание (справа вверху). Нажмите на колоду слева, чтобы открыть новые карты.</p>
+      </div>
+
+      <div id="gSlots" class="hidden">
+        <div class="flex flex-wrap items-center gap-2 mb-3 font-mono text-xs">
+          <span class="chip px-2 py-1">Очки: <b id="slBal">100</b></span>
+          <span class="chip px-2 py-1">Ставка: <b id="slBet">1</b></span>
+          <span id="slMsg" class="muted"></span>
+        </div>
+        <div class="brk panel p-3 sm:p-4 inline-block max-w-full">
+          <div class="slmachine">
+            <div class="reels">
+              <div class="reel"><div class="strip" id="slS0"></div></div>
+              <div class="reel"><div class="strip" id="slS1"></div></div>
+              <div class="reel"><div class="strip" id="slS2"></div></div>
+              <div class="payline" id="slPayline"></div>
+            </div>
+          </div>
+        </div>
+        <div class="flex flex-wrap gap-2 mt-3">
+          <button id="slSpin" class="btn cut-sm">Крутить</button>
+          <button id="slBetBtn" class="btn btn-o cut-sm">Ставка: 1</button>
+          <button id="slReset" class="btn btn-o cut-sm hidden">Начать заново (100 очков)</button>
+        </div>
+        <div id="slPay" class="flex flex-wrap gap-1.5 mt-4 font-mono text-[11px]"></div>
+        <p class="font-mono text-[11px] muted mt-3 leading-relaxed">Это игра на виртуальные очки: настоящих денег и покупок здесь нет. Три одинаковых символа на средней линии дают выигрыш по таблице, два одинаковых слева возвращают ставку. Средний возврат около 92%, так что очки в долгую заканчиваются, а это просто развлечение.</p>
+      </div>
+
+      <div id="gJump" class="hidden">
+        <div class="flex flex-wrap items-center gap-2 mb-3 font-mono text-xs">
+          <span class="chip px-2 py-1">Высота: <b id="jScore">0</b></span>
+          <span class="chip px-2 py-1">Рекорд: <b id="jBest">0</b></span>
+          <span class="ml-auto flex gap-2"><button id="jPause" class="btn btn-o cut-sm">Играть</button><button id="jNewBtn" class="btn cut-sm">Заново</button></span>
+        </div>
+        <canvas id="jCanvas" width="360" height="560" aria-label="Игра: прыжки по платформам"></canvas>
+        <p class="font-mono text-[11px] muted mt-3 leading-relaxed">Ведите пальцем влево и вправо по полю (на компьютере: стрелки или A и D, пробел — пауза). Игрок прыгает сам. Ромб на платформе — пружина, она подбрасывает выше. Платформа с пунктиром ломается и отскока не даёт. Края поля замкнуты.</p>
       </div>
     </section>
 
@@ -646,7 +702,7 @@ function renderHeader(){
   if(view==='home')s.textContent=loadError?'Не удалось загрузить данные':'Выберите раздел';
   else if(view==='schedule')s.textContent=viewId?weekMeta(viewId,W()):'Расписание не загружено';
   else if(view==='messages')s.textContent='От куратора группы '+groupName();
-  else if(view==='games')s.textContent=gameSel==='mines'?'Откройте все клетки и не наступите на мину':gameSel==='sol'?'Разложите карты по мастям от туза до короля':'Сапёр и косынка';
+  else if(view==='games')s.textContent=gameSel?GAME_SUB[gameSel]:'Сапёр, косынка, слоты и прыжки';
   else s.textContent='Кто сделал этот сайт';
   $('backBtn').classList.toggle('hidden',view==='home');
   $('brigBtn').classList.toggle('hidden',!(view==='schedule'&&keys().length>1));
@@ -664,7 +720,7 @@ function menuItems(){
   return[
     {id:'schedule',t:'Расписание',s:w&&w.week?w.week+' · бригада '+brig:'Пары по дням недели',badge:unseenSched()?'новое':''},
     {id:'messages',t:'Сообщения от куратора',s:visibleMsgs().length?'Всего сообщений: '+visibleMsgs().length:'Пока пусто',badge:n?n+' нов.':''},
-    {id:'games',t:'Игры',s:'Сапёр и косынка',badge:''},
+    {id:'games',t:'Игры',s:'Сапёр, косынка, слоты, прыжки',badge:''},
     {id:'credits',t:'Создатели',s:'Кто сделал этот сайт',badge:''}
   ];
 }
@@ -707,7 +763,7 @@ function detailLines(id){
     }
   }else if(id==='games'){
     const b=bestText();
-    L.push('<span class="font-mono text-xs muted">Игры</span>','Сапёр и косынка — сыграйте между парами.','<span class="muted">'+esc(b.mines)+'</span>');
+    L.push('<span class="font-mono text-xs muted">Игры</span>','Сапёр, косынка, слоты и прыжки — сыграйте между парами.','<span class="muted">'+esc(b.mines)+'</span>');
   }else if(id==='credits'){
     L.push('<span class="font-mono text-xs muted">Создатели</span>','Создатель сайта','<b>Que95_</b>');
   }else{
@@ -885,6 +941,7 @@ function renderAll(){pickBrigade();renderHeader();renderView();updateTitle()}
 function show(v){
   const prev=view;view=v;
   if(v==='games'&&prev!=='games')gameSel=null;
+  if(v!=='games')jPause();
   if(v==='home'&&!draftW){viewId=curId;active=Math.max(0,todayIdx())}
   pickBrigade();
   ['home','schedule','messages','games','credits'].forEach(x=>$('v-'+x).classList.toggle('hidden',x!==v));
@@ -1271,7 +1328,8 @@ function bind(){
 
 /* ---------- игры: сапёр и косынка ---------- */
 let gameSel=null,mg=null,sg=null,mFlagMode=false,lastTap={k:'',t:0};
-const GAME_NAMES={mines:'Сапёр',sol:'Косынка'};
+const GAME_NAMES={mines:'Сапёр',sol:'Косынка',slots:'Слоты',jump:'Дудл-джамп'};
+const GAME_SUB={mines:'Откройте все клетки и не наступите на мину',sol:'Разложите карты по мастям от туза до короля',slots:'Только виртуальные очки, настоящих денег нет',jump:'Прыгайте всё выше по платформам'};
 const M_LEVELS={easy:{r:9,c:9,m:10,n:'Лёгкий'},mid:{r:12,c:12,m:25,n:'Средний'},hard:{r:16,c:16,m:40,n:'Сложный'}};
 const SUITS=['♠','♥','♦','♣'],RANKS=['','A','2','3','4','5','6','7','8','9','10','J','Q','K'];
 const fmtT=s=>Math.floor(s/60)+':'+String(s%60).padStart(2,'0');
@@ -1280,28 +1338,37 @@ const shuffle=a=>{for(let k=a.length-1;k>0;k--){const j=Math.floor(Math.random()
 function bestText(){
   const m=Object.keys(M_LEVELS).map(k=>{const b=lsGet('best_mines_'+k);return b?M_LEVELS[k].n.toLowerCase()+' '+fmtT(+b):''}).filter(Boolean);
   const s=lsGet('best_sol');
-  return{mines:m.length?'Рекорды: '+m.join(' · '):'Рекордов пока нет',sol:s?'Лучшее время: '+fmtT(+s):'Рекордов пока нет'};
+  const j=lsGet('best_jump'),sb=lsGet('slots_max');
+  return{mines:m.length?'Рекорды: '+m.join(' · '):'Рекордов пока нет',sol:s?'Лучшее время: '+fmtT(+s):'Рекордов пока нет',jump:j?'Рекорд высоты: '+j:'Рекордов пока нет',slots:sb?'Максимум очков: '+sb:'Начните с 100 очков'};
 }
 function renderGames(){
   const pick=!gameSel;
   $('gPick').classList.toggle('hidden',!pick);
   $('gMines').classList.toggle('hidden',gameSel!=='mines');
   $('gSol').classList.toggle('hidden',gameSel!=='sol');
+  $('gSlots').classList.toggle('hidden',gameSel!=='slots');
+  $('gJump').classList.toggle('hidden',gameSel!=='jump');
   if(pick){
     const b=bestText();
     $('gBestM').textContent=(mg&&(mg.state==='play')?'Игра идёт · ':'')+b.mines;
     $('gBestS').textContent=(sg&&(sg.state==='play')?'Игра идёт · ':'')+b.sol;
+    $('gBestJ').textContent=b.jump;
+    $('gBestL').textContent=b.slots;
   }else if(gameSel==='mines')renderMines();
-  else renderSol();
+  else if(gameSel==='sol')renderSol();
+  else if(gameSel==='slots')renderSlots();
+  else jOpen();
 }
 function openGame(g){
   gameSel=g;
   if(g==='mines'&&!mg)mNew(lsGet('mlvl')||'easy');
   if(g==='sol'&&!sg)sNew();
+  if(g==='slots'&&!sl)slLoad();
+  if(g==='jump'&&!jg)jNew();
   renderHeader();renderGames();
 }
 function goBack(){
-  if(view==='games'&&gameSel){gameSel=null;renderHeader();renderGames();return}
+  if(view==='games'&&gameSel){jPause();gameSel=null;renderHeader();renderGames();return}
   go('home');
 }
 function tickGames(){
@@ -1558,8 +1625,274 @@ function bindGames(){
   $('sAuto').addEventListener('click',sAuto);
   $('sDraw').addEventListener('click',()=>{sg.draw=sg.draw===1?3:1;lsSet('sdraw',sg.draw);sRender()});
   setInterval(tickGames,1000);
+  bindExtra();
 }
 const sRender=renderSol;
+
+/* ---------- слоты ---------- */
+// Только виртуальные очки: ни денег, ни покупок. При нуле очков можно начать заново бесплатно.
+const SL_SYM=['■','●','▲','◆','✦','7'];
+const SL_W=[30,24,18,12,6,3];                 // вес символа на барабане
+const SL_PAY=[8,12,20,40,100,400];            // множитель за три одинаковых; две одинаковые слева возвращают ставку
+const SL_BETS=[1,5,10,25];
+const SL_START=100;
+let sl=null;
+function slLoad(){
+  const b=lsGet('slots_bal');
+  sl={bal:b===null?SL_START:Math.max(0,+b||0),bet:+lsGet('slots_bet')||1,spinning:false,shown:0,res:null,win:0,msg:'Нажмите «Крутить»',max:+lsGet('slots_max')||SL_START};
+  if(!SL_BETS.includes(sl.bet))sl.bet=1;
+  if(sl.bal>0&&sl.bet>sl.bal)sl.bet=1;
+  sl.shown=sl.bal;
+}
+function slPick(){
+  const t=SL_W.reduce((a,b)=>a+b,0);let r=Math.random()*t;
+  for(let i=0;i<SL_W.length;i++){r-=SL_W[i];if(r<0)return i}
+  return 0;
+}
+const slEval=(a,b,c)=>a===b&&b===c?SL_PAY[a]:a===b?1:0;
+const slSym=i=>SL_SYM[i];
+function slStrip(res,len){
+  const rnd=()=>`<div class="sy">${slSym(slPick())}</div>`;
+  let h='';for(let k=0;k<len;k++)h+=rnd();
+  return h+rnd()+`<div class="sy mid">${slSym(res)}</div>`+rnd();
+}
+function renderSlots(){
+  if(!sl)slLoad();
+  $('slBal').textContent=sl.shown;
+  $('slBet').textContent=sl.bet;
+  $('slBetBtn').textContent='Ставка: '+sl.bet;
+  $('slMsg').textContent=sl.msg;
+  const broke=sl.bal<1&&!sl.spinning;
+  $('slReset').classList.toggle('hidden',!broke);
+  $('slSpin').disabled=sl.spinning||broke;
+  $('slBetBtn').disabled=sl.spinning;
+  $('slPay').innerHTML=SL_SYM.map((s,i)=>`<span class="chip px-2 py-1">${s}${s}${s} ×${SL_PAY[i]}</span>`).join('')+`<span class="chip px-2 py-1">две слева ×1</span>`;
+  if(!sl.res){for(let i=0;i<3;i++){const s=$('slS'+i);s.style.transition='none';s.style.transform='none';s.innerHTML=slStrip(slPick(),0)}}
+}
+function slCycleBet(){
+  if(sl.spinning)return;
+  const opts=SL_BETS.filter(b=>b<=Math.max(1,sl.bal));
+  sl.bet=opts[(opts.indexOf(sl.bet)+1)%opts.length]||1;
+  lsSet('slots_bet',sl.bet);renderSlots();
+}
+function slSpin(){
+  if(!sl||sl.spinning)return;
+  if(sl.bal<sl.bet){sl.msg='Не хватает очков для такой ставки';renderSlots();return}
+  const res=[slPick(),slPick(),slPick()],mult=slEval(res[0],res[1],res[2]),win=mult*sl.bet;
+  sl.bal=sl.bal-sl.bet+win;sl.res=res;sl.win=win;sl.spinning=true;
+  lsSet('slots_bal',sl.bal);
+  if(sl.bal>sl.max){sl.max=sl.bal;lsSet('slots_max',sl.max)}
+  const fast=reduce(),base=fast?0:1000,step=fast?0:360;
+  for(let i=0;i<3;i++){
+    const n=fast?0:16+i*7,s=$('slS'+i);
+    s.style.transition='none';s.style.transform='translateY(0)';
+    s.innerHTML=slStrip(res[i],n);
+    if(!fast){
+      void s.offsetWidth;
+      s.style.transition='transform '+((base+i*step)/1000)+'s cubic-bezier(.12,.7,.18,1)';
+      s.style.transform='translateY(-'+(n/(n+3)*100)+'%)';
+    }
+  }
+  sl.msg=fast?'':'…';
+  $('slPayline').classList.remove('win');
+  renderSlotsState();
+  setTimeout(slFinish,fast?0:base+2*step+120);
+}
+function renderSlotsState(){
+  $('slSpin').disabled=sl.spinning;$('slBetBtn').disabled=sl.spinning;
+  $('slMsg').textContent=sl.msg;
+}
+function slFinish(){
+  sl.spinning=false;sl.shown=sl.bal;
+  const [a,b,c]=sl.res;
+  sl.msg=sl.win>sl.bet?'Выигрыш: +'+(sl.win-sl.bet)+' ('+slSym(a)+slSym(b)+slSym(c)+')':sl.win===sl.bet?'Ставка возвращена':sl.bal<1?'Очки закончились':'Не повезло';
+  if(sl.win>0)$('slPayline').classList.add('win');
+  if(sl.bal>0&&sl.bet>sl.bal){sl.bet=SL_BETS.filter(x=>x<=sl.bal).pop()||1;lsSet('slots_bet',sl.bet)}
+  $('slBal').textContent=sl.shown;$('slBet').textContent=sl.bet;$('slBetBtn').textContent='Ставка: '+sl.bet;
+  $('slReset').classList.toggle('hidden',sl.bal>=1);
+  $('slSpin').disabled=sl.bal<1;$('slBetBtn').disabled=false;$('slMsg').textContent=sl.msg;
+}
+function slReset(){
+  sl.bal=SL_START;sl.shown=SL_START;sl.bet=1;sl.res=null;sl.msg='Новая игра: '+SL_START+' очков';
+  lsSet('slots_bal',SL_START);lsSet('slots_bet',1);renderSlots();
+}
+
+/* ---------- прыжки по платформам ---------- */
+const J={W:360,H:560,PW:24,PLW:64,PLH:10,G:1500,JUMP:640,SPRING:980,VX:290,STEP:1/120,MAXGAP:106};
+let jg=null,jRun=false,jRaf=0,jLast=0,jAcc=0,jKeys={l:0,r:0},jTx=null,jSc=1;
+const jr=(a,b)=>a+Math.random()*(b-a);
+function jNew(){
+  const y0=J.H-90;
+  jg={state:'ready',x:J.W/2,y:y0,vx:0,vy:-J.JUMP,cam:0,minY:y0,startY:y0,score:0,plats:[],last:null,t:0,squash:0,best:+lsGet('best_jump')||0,record:false};
+  const p={x:J.W/2-J.PLW/2,y:J.H-60,t:'n',sp:false,base:J.W/2-J.PLW/2,dead:false};
+  jg.plats.push(p);jg.last=p;
+  jGen();
+}
+function jGen(){
+  const g=jg;
+  while(g.last.y>g.cam-260){
+    const d=Math.min(1,Math.max(0,(g.startY-g.last.y)/9000));
+    const gap=Math.min(J.MAXGAP,54+50*d+jr(-6,6));
+    const y=g.last.y-gap,prevX=g.last.base;
+    const moving=Math.random()<.08+.25*d;
+    const amp=moving?Math.min(55,30+25*d):0;
+    const lo=amp,hi=J.W-J.PLW-amp;
+    const x=Math.max(lo,Math.min(hi,prevX+jr(-100,100)));
+    const p={x,y,t:moving?'m':'n',base:x,amp,ph:jr(0,6.28),sp:false,spd:1+1.2*d,dead:false};
+    if(!moving&&Math.random()<.08)p.sp=true;
+    g.plats.push(p);
+    // хрупкие платформы-ловушки: кроме основной цепочки, их можно пропустить
+    if(Math.random()<.18+.35*d){
+      const cy=y+gap*jr(.3,.7);
+      g.plats.push({x:jr(0,J.W-J.PLW),y:cy,t:'c',base:0,sp:false,dead:false});
+    }
+    g.last=p;
+  }
+}
+function jStep(dt,steer){
+  const g=jg;if(!g||g.state!=='play')return;
+  g.t+=dt;
+  for(const p of g.plats){
+    if(p.t==='m')p.x=Math.max(0,Math.min(J.W-J.PLW,p.base+Math.sin(p.ph+g.t*p.spd)*p.amp));
+    if(p.dead)p.y+=380*dt;
+  }
+  const tx=steer&&steer.tx!=null?steer.tx:jTx;
+  g.vx=tx!=null?Math.max(-J.VX,Math.min(J.VX,(tx-g.x)*9)):(jKeys.r-jKeys.l)*J.VX;
+  g.x+=g.vx*dt;
+  if(g.x<-J.PW/2)g.x+=J.W+J.PW;else if(g.x>J.W+J.PW/2)g.x-=J.W+J.PW;
+  const prevBottom=g.y+J.PW/2;
+  g.vy+=J.G*dt;g.y+=g.vy*dt;
+  if(g.vy>0){
+    const bottom=g.y+J.PW/2;
+    for(const p of g.plats){
+      if(p.dead)continue;
+      if(prevBottom<=p.y+2&&bottom>=p.y&&Math.abs(g.x-(p.x+J.PLW/2))<J.PLW/2+J.PW*.35){
+        if(p.t==='c'){p.dead=true;continue}                 // хрупкая платформа ломается, отскока нет
+        g.vy=-(p.sp?J.SPRING:J.JUMP);g.y=p.y-J.PW/2;g.squash=.14;break;
+      }
+    }
+  }
+  if(g.y<g.minY)g.minY=g.y;
+  const target=g.y-J.H*.42;if(target<g.cam)g.cam=target;
+  g.score=Math.max(g.score,Math.floor((g.startY-g.minY)/8));
+  jGen();
+  g.plats=g.plats.filter(p=>p.y<g.cam+J.H+140);
+  if(g.squash>0)g.squash-=dt;
+  if(g.y-g.cam>J.H+30){
+    g.state='over';
+    if(g.score>g.best){g.best=g.score;g.record=g.score>0;lsSet('best_jump',g.score)}
+  }
+}
+function jColors(){
+  if(typeof getComputedStyle==='function'){
+    const cs=getComputedStyle(document.documentElement),v=n=>(cs.getPropertyValue(n)||'').trim();
+    return{ink:v('--ink')||'#4e4b42',bg:v('--bg')||'#cdc8b0',panel:v('--panel')||'#dad4bb',on:v('--on')||'#dad4bb',mut:v('--mut')||'#6f6b5d'};
+  }
+  return{ink:'#4e4b42',bg:'#cdc8b0',panel:'#dad4bb',on:'#dad4bb',mut:'#6f6b5d'};
+}
+function jResize(){
+  const cv=$('jCanvas');if(!cv||!cv.getBoundingClientRect)return;
+  const aw=Math.floor($('gJump').getBoundingClientRect().width)||360,ah=Math.floor((window.innerHeight||800)*.74);
+  const w=Math.max(240,Math.min(420,aw,Math.floor(ah*J.W/J.H))),h=Math.round(w*J.H/J.W),dpr=Math.min(2,window.devicePixelRatio||1);
+  cv.style.width=w+'px';cv.style.height=h+'px';cv.width=Math.round(w*dpr);cv.height=Math.round(h*dpr);
+  jSc=cv.width/J.W;
+}
+function jDraw(){
+  const cv=$('jCanvas'),ctx=cv.getContext&&cv.getContext('2d');if(!ctx||!jg)return;
+  const C=jColors(),g=jg;
+  ctx.setTransform(jSc,0,0,jSc,0,0);
+  ctx.fillStyle=C.bg;ctx.fillRect(0,0,J.W,J.H);
+  ctx.strokeStyle=C.ink;ctx.globalAlpha=.07;ctx.lineWidth=1;ctx.beginPath();
+  const off=((-g.cam*.4)%16+16)%16;
+  for(let k=-J.H;k<J.W+J.H;k+=16){ctx.moveTo(k+off,0);ctx.lineTo(k+off-J.H,J.H)}
+  ctx.stroke();ctx.globalAlpha=1;
+  for(const p of g.plats){
+    const y=p.y-g.cam;if(y<-20||y>J.H+20)continue;
+    if(p.t==='c'){
+      ctx.setLineDash([5,4]);ctx.strokeStyle=C.ink;ctx.lineWidth=1.5;ctx.strokeRect(p.x+.75,y+.75,J.PLW-1.5,J.PLH-1.5);ctx.setLineDash([]);
+      if(p.dead){ctx.globalAlpha=.4;ctx.fillStyle=C.ink;ctx.fillRect(p.x,y,J.PLW,J.PLH);ctx.globalAlpha=1}
+      continue;
+    }
+    ctx.fillStyle=C.ink;ctx.fillRect(p.x,y,J.PLW,J.PLH);
+    ctx.fillStyle=C.on;ctx.fillRect(p.x+3,y+3,J.PLW-6,1);
+    if(p.t==='m'){ctx.fillRect(p.x+2,y+2,4,6);ctx.fillRect(p.x+J.PLW-6,y+2,4,6)}
+    if(p.sp){
+      ctx.fillStyle=C.ink;ctx.beginPath();const cx=p.x+J.PLW/2;
+      ctx.moveTo(cx,y-12);ctx.lineTo(cx+7,y-5);ctx.lineTo(cx,y+1);ctx.lineTo(cx-7,y-5);ctx.closePath();ctx.fill();
+    }
+  }
+  // игрок: ромб, как маркер меню
+  const px=g.x,py=g.y-g.cam,sq=g.squash>0?1.18:1,s=J.PW*.62;
+  const draws=[px];if(px<J.PW)draws.push(px+J.W+J.PW);if(px>J.W-J.PW)draws.push(px-J.W-J.PW);
+  for(const x of draws){
+    ctx.save();ctx.translate(x,py);ctx.rotate(Math.PI/4);ctx.scale(1/sq,sq);
+    ctx.fillStyle=C.ink;ctx.fillRect(-s,-s,s*2,s*2);
+    ctx.fillStyle=C.bg;ctx.fillRect(-s*.35,-s*.35,s*.7,s*.7);
+    ctx.restore();
+  }
+  ctx.fillStyle=C.ink;ctx.font="700 15px 'IBM Plex Mono',monospace";ctx.textAlign='left';ctx.textBaseline='top';
+  ctx.fillText(String(g.score),12,10);
+  ctx.textAlign='right';ctx.globalAlpha=.6;ctx.fillText('рекорд '+g.best,J.W-12,10);ctx.globalAlpha=1;
+  if(g.state!=='play'){
+    const lines=g.state==='ready'?['Прыжки','Ведите пальцем влево-вправо','Нажмите, чтобы начать']
+      :g.state==='pause'?['Пауза','Нажмите, чтобы продолжить']
+      :['Конец','Высота: '+g.score+(g.record?' · новый рекорд':''),'Нажмите, чтобы начать заново'];
+    const bw=250,bh=34+lines.length*24,bx=(J.W-bw)/2,by=J.H*.36;
+    ctx.fillStyle=C.panel;ctx.globalAlpha=.94;ctx.fillRect(bx,by,bw,bh);ctx.globalAlpha=1;
+    ctx.strokeStyle=C.ink;ctx.lineWidth=2;ctx.strokeRect(bx,by,bw,bh);
+    ctx.fillStyle=C.ink;ctx.textAlign='center';ctx.textBaseline='middle';
+    lines.forEach((t,i)=>{ctx.font=(i===0?"700 20px":"400 13px")+" 'IBM Plex Mono',monospace";ctx.fillText(t,J.W/2,by+26+i*24+(i?6:0))});
+  }
+  $('jScore').textContent=g.score;$('jBest').textContent=g.best;
+  $('jPause').textContent=g.state==='play'?'Пауза':'Играть';
+}
+function jLoop(ts){
+  if(!jRun)return;
+  const dt=Math.min(.05,(ts-jLast)/1000||0);jLast=ts;jAcc+=dt;
+  while(jAcc>=J.STEP){jStep(J.STEP);jAcc-=J.STEP}
+  jDraw();
+  if(jg.state==='play')jRaf=requestAnimationFrame(jLoop);else jRun=false;
+}
+function jStart(){
+  if(!jg)jNew();
+  if(jg.state==='over')jNew();
+  jg.state='play';jRun=true;jLast=performance.now();jAcc=0;jDraw();
+  jRaf=requestAnimationFrame(jLoop);
+}
+function jPause(){
+  if(jRaf&&typeof cancelAnimationFrame==='function')cancelAnimationFrame(jRaf);
+  jRun=false;jRaf=0;jTx=null;jKeys.l=0;jKeys.r=0;
+  if(jg&&jg.state==='play'){jg.state='pause';if(gameSel==='jump'&&view==='games')jDraw()}
+}
+function jToggle(){if(!jg)jNew();if(jg.state==='play')jPause();else jStart()}
+function jOpen(){if(!jg)jNew();jResize();jDraw()}
+function jPtr(e){const r=$('jCanvas').getBoundingClientRect();return(e.clientX-r.left)/r.width*J.W}
+function jKey(e,down){
+  if(view!=='games'||gameSel!=='jump')return;
+  const k=e.key;
+  if(k==='ArrowLeft'||k==='a'||k==='A'){jKeys.l=down?1:0;e.preventDefault&&e.preventDefault();if(down&&jg&&jg.state!=='play')jStart()}
+  else if(k==='ArrowRight'||k==='d'||k==='D'){jKeys.r=down?1:0;e.preventDefault&&e.preventDefault();if(down&&jg&&jg.state!=='play')jStart()}
+  else if(down&&(k===' '||k==='Enter')&&!e.target.matches('button,input,textarea,select')){e.preventDefault&&e.preventDefault();jToggle()}
+}
+
+function bindExtra(){
+  $('slSpin').addEventListener('click',slSpin);
+  $('slBetBtn').addEventListener('click',slCycleBet);
+  $('slReset').addEventListener('click',slReset);
+  const cv=$('jCanvas');let down=false;
+  cv.addEventListener('pointerdown',e=>{
+    down=true;try{cv.setPointerCapture(e.pointerId)}catch(x){}
+    if(!jg||jg.state!=='play'){jStart()}
+    jTx=jPtr(e);
+  });
+  cv.addEventListener('pointermove',e=>{if(down)jTx=jPtr(e)});
+  ['pointerup','pointercancel'].forEach(n=>cv.addEventListener(n,()=>{down=false;jTx=null}));
+  $('jPause').addEventListener('click',jToggle);
+  $('jNewBtn').addEventListener('click',()=>{jPause();jNew();jResize();jDraw()});
+  document.addEventListener('keydown',e=>jKey(e,true));
+  document.addEventListener('keyup',e=>jKey(e,false));
+  document.addEventListener('visibilitychange',()=>{if(document.hidden)jPause()});
+}
 
 
 /* ---------- старт ---------- */
