@@ -123,6 +123,26 @@ input[type=range]{accent-color:var(--ink);width:5rem}
 #tracklist .wi{flex:1;min-width:0}
 .glitch{display:inline-block}
 .glitch:hover{animation:glitch .4s steps(1,end) 1}
+
+/* ---- игры ---- */
+.mgrid{display:grid;gap:2px;width:max-content;touch-action:manipulation;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}
+.mc{width:var(--cs);height:var(--cs);display:flex;align-items:center;justify-content:center;font-family:'IBM Plex Mono',monospace;font-weight:700;font-size:calc(var(--cs)*.5);line-height:1;background:var(--panel);color:var(--ink);box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--ink) 45%,transparent);cursor:pointer;transition:background .1s}
+.mc:hover:not(.open){background:var(--tabhov)}
+.mc.open{background:var(--bg);box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--ink) 18%,transparent);cursor:default}
+.mc.flag{color:var(--err)}
+.mc.bomb{background:var(--ink);color:var(--on)}
+.mc.boom{background:var(--err);color:var(--bg)}
+.sgrid{display:grid;gap:6px;align-items:start;touch-action:manipulation;user-select:none;-webkit-user-select:none}
+.sgrid.tabrow{margin-top:24px}
+.slot{position:relative;box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--ink) 30%,transparent)}
+.slotbtn{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-family:'IBM Plex Mono',monospace;color:color-mix(in srgb,var(--ink) 55%,transparent);font-size:calc(var(--cw)*.4);cursor:pointer}
+.card{position:absolute;left:0;display:block;text-align:left;padding:2px 3px;font-family:'IBM Plex Mono',monospace;font-weight:700;font-size:calc(var(--cw)*.27);line-height:1.05;background:var(--panel);color:var(--ink);box-shadow:inset 0 0 0 1px var(--ink);overflow:hidden;cursor:pointer;transition:transform .1s}
+.card.red{color:var(--err)}
+.card.down{background-image:repeating-linear-gradient(135deg,var(--ink) 0 1px,transparent 1px 5px);color:transparent}
+.card .cb{position:absolute;right:4px;bottom:3px;font-size:calc(var(--cw)*.5)}
+.card.sel{background:var(--ink);color:var(--on);transform:translateY(-3px)}
+.card.red.sel{color:var(--on)}
+.cnt{position:absolute;left:50%;bottom:-1.25rem;transform:translateX(-50%);font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--mut)}
 </style>
 </head>
 <body class="font-head antialiased">
@@ -534,6 +554,57 @@ function buildUI(){
       <div id="msgList" class="flex flex-col gap-3"></div>
     </section>
 
+
+    <section id="v-games" class="view hidden">
+      <div id="gPick" class="grid sm:grid-cols-2 gap-3">
+        <button data-g="mines" class="lesson cut rev text-left pl-5 pr-4 py-4" style="--i:0">
+          <h3 class="text-xl font-bold tracking-wider">Сапёр</h3>
+          <p class="font-mono text-xs mt-1 opacity-80">Откройте все клетки и не наступите на мину</p>
+          <p id="gBestM" class="font-mono text-[11px] muted mt-2"></p>
+        </button>
+        <button data-g="sol" class="lesson cut rev text-left pl-5 pr-4 py-4" style="--i:1">
+          <h3 class="text-xl font-bold tracking-wider">Косынка</h3>
+          <p class="font-mono text-xs mt-1 opacity-80">Разложите карты по мастям от туза до короля</p>
+          <p id="gBestS" class="font-mono text-[11px] muted mt-2"></p>
+        </button>
+      </div>
+
+      <div id="gMines" class="hidden">
+        <div class="flex flex-wrap items-center gap-2 mb-3 font-mono text-xs">
+          <span class="chip px-2 py-1">Мины: <b id="mLeft">0</b></span>
+          <span class="chip px-2 py-1">Время: <b id="mTime">0</b> с</span>
+          <span id="mMsg" class="muted"></span>
+        </div>
+        <div class="flex flex-wrap items-center gap-2 mb-3">
+          <span id="mLevels" class="flex gap-1.5">
+            <button class="seg cut-sm" data-l="easy" aria-pressed="true">Лёгкий</button>
+            <button class="seg cut-sm" data-l="mid" aria-pressed="false">Средний</button>
+            <button class="seg cut-sm" data-l="hard" aria-pressed="false">Сложный</button>
+          </span>
+          <button id="mMode" class="btn btn-o cut-sm"></button>
+          <button id="mNew" class="btn cut-sm">Заново</button>
+        </div>
+        <div id="mBoard" class="overflow-x-auto pb-1" style="touch-action:manipulation"></div>
+        <p class="font-mono text-[11px] muted mt-3 leading-relaxed">Нажмите на клетку, чтобы открыть её. Долгое нажатие или правая кнопка мыши ставит флажок (на телефоне удобнее включить «Флажок»). Нажатие на цифру открывает соседние клетки, если вокруг столько же флажков.</p>
+      </div>
+
+      <div id="gSol" class="hidden">
+        <div class="flex flex-wrap items-center gap-2 mb-3 font-mono text-xs">
+          <span class="chip px-2 py-1">Ходов: <b id="sMoves">0</b></span>
+          <span class="chip px-2 py-1">Время: <b id="sTime">0:00</b></span>
+          <span id="sMsg" class="muted"></span>
+        </div>
+        <div class="flex flex-wrap gap-2 mb-3">
+          <button id="sUndo" class="btn btn-o cut-sm">↶ Отмена хода</button>
+          <button id="sAuto" class="btn btn-o cut-sm">Собрать</button>
+          <button id="sDraw" class="btn btn-o cut-sm"></button>
+          <button id="sNew" class="btn cut-sm">Заново</button>
+        </div>
+        <div id="sBoard" style="touch-action:manipulation"></div>
+        <p class="font-mono text-[11px] muted mt-3 leading-relaxed">Нажмите на карту, затем на место, куда её положить: красные кладутся на чёрные и наоборот, по убыванию. Двойное нажатие отправляет карту на основание (справа вверху). Нажмите на колоду слева, чтобы открыть новые карты.</p>
+      </div>
+    </section>
+
     <section id="v-credits" class="view hidden">
       <div class="brk panel p-6 sm:p-10">
         <div class="flex items-center gap-2 font-mono text-xs muted"><span class="sq"></span><span>Создатель сайта</span></div>
@@ -566,14 +637,16 @@ function buildUI(){
 }
 
 /* ---------- шапка ---------- */
-const LABEL={home:'Главная',schedule:'Расписание',messages:'Сообщения',credits:'Создатели'};
+const LABEL={home:'Главная',schedule:'Расписание',messages:'Сообщения',games:'Игры',credits:'Создатели'};
 function renderHeader(){
-  $('crumb').textContent=view==='home'?'Главная':'Главная › '+LABEL[view];
-  $('title').textContent=view==='home'?'Группа '+(groupName()||'—'):LABEL[view];
+  const gm=view==='games'&&gameSel;
+  $('crumb').textContent=view==='home'?'Главная':'Главная › '+LABEL[view]+(gm?' › '+GAME_NAMES[gameSel]:'');
+  $('title').textContent=view==='home'?'Группа '+(groupName()||'—'):gm?GAME_NAMES[gameSel]:LABEL[view];
   const s=$('sub');
   if(view==='home')s.textContent=loadError?'Не удалось загрузить данные':'Выберите раздел';
   else if(view==='schedule')s.textContent=viewId?weekMeta(viewId,W()):'Расписание не загружено';
   else if(view==='messages')s.textContent='От куратора группы '+groupName();
+  else if(view==='games')s.textContent=gameSel==='mines'?'Откройте все клетки и не наступите на мину':gameSel==='sol'?'Разложите карты по мастям от туза до короля':'Сапёр и косынка';
   else s.textContent='Кто сделал этот сайт';
   $('backBtn').classList.toggle('hidden',view==='home');
   $('brigBtn').classList.toggle('hidden',!(view==='schedule'&&keys().length>1));
@@ -582,7 +655,7 @@ function renderHeader(){
   const w=cache[viewId],u=w&&w.updatedAt?new Date(w.updatedAt):null;
   $('updated').textContent=view==='schedule'&&u&&!isNaN(u)?'Обновлено: '+u.toLocaleString('ru-RU',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})+(w.edited?' · правка вручную':w.source?' · '+w.source:''):'';
   updateNotifBtn();
-  $('hint').textContent=view==='home'?'↑ ↓ выбор · Enter открыть':view==='schedule'?'← → дни · Esc назад':'Esc назад';
+  $('hint').textContent=view==='home'?'↑ ↓ выбор · Enter открыть':view==='schedule'?'← → дни · Esc назад':view==='games'&&gameSel?'Esc к списку игр':'Esc назад';
 }
 
 /* ---------- главная ---------- */
@@ -591,6 +664,7 @@ function menuItems(){
   return[
     {id:'schedule',t:'Расписание',s:w&&w.week?w.week+' · бригада '+brig:'Пары по дням недели',badge:unseenSched()?'новое':''},
     {id:'messages',t:'Сообщения от куратора',s:visibleMsgs().length?'Всего сообщений: '+visibleMsgs().length:'Пока пусто',badge:n?n+' нов.':''},
+    {id:'games',t:'Игры',s:'Сапёр и косынка',badge:''},
     {id:'credits',t:'Создатели',s:'Кто сделал этот сайт',badge:''}
   ];
 }
@@ -631,6 +705,9 @@ function detailLines(id){
         else L.push('На сегодня всё.');
       }
     }
+  }else if(id==='games'){
+    const b=bestText();
+    L.push('<span class="font-mono text-xs muted">Игры</span>','Сапёр и косынка — сыграйте между парами.','<span class="muted">'+esc(b.mines)+'</span>');
   }else if(id==='credits'){
     L.push('<span class="font-mono text-xs muted">Создатели</span>','Создатель сайта','<b>Que95_</b>');
   }else{
@@ -802,13 +879,15 @@ function renderView(){
   if(view==='home')renderMenu();
   else if(view==='schedule'){renderWeekNav();renderTabs();renderList();syncEditBar()}
   else if(view==='messages')renderMessages();
+  else if(view==='games')renderGames();
 }
 function renderAll(){pickBrigade();renderHeader();renderView();updateTitle()}
 function show(v){
-  view=v;
+  const prev=view;view=v;
+  if(v==='games'&&prev!=='games')gameSel=null;
   if(v==='home'&&!draftW){viewId=curId;active=Math.max(0,todayIdx())}
   pickBrigade();
-  ['home','schedule','messages','credits'].forEach(x=>$('v-'+x).classList.toggle('hidden',x!==v));
+  ['home','schedule','messages','games','credits'].forEach(x=>$('v-'+x).classList.toggle('hidden',x!==v));
   restart($('v-'+v),'view');
   restart($('title'),v==='home'?'flick':'glitch-in');
   restart($('rule'),'draw');
@@ -1126,7 +1205,8 @@ function bind(){
   $('list').addEventListener('click',e=>{const b=e.target.closest('[data-edit]');if(b)openEd(active,+b.dataset.edit)});
   $('addLesson').addEventListener('click',()=>openEd(active,-1));
   $('msgList').addEventListener('click',e=>{const b=e.target.closest('[data-del]');if(b)delMessage(b)});
-  $('backBtn').addEventListener('click',()=>go('home'));
+  $('backBtn').addEventListener('click',goBack);
+  bindGames();
   $('brigBtn').addEventListener('click',cycleBrig);
   $('themeBtn').addEventListener('click',()=>setTheme(document.documentElement.dataset.theme==='night'?'day':'night'));
   $('notifBtn').addEventListener('click',toggleNotif);
@@ -1161,7 +1241,7 @@ function bind(){
     if(e.key==='Escape'&&pwOpen()){closePw();return}
     if(pwOpen()||ed)return;
     if(e.target.matches('input,textarea,select'))return;
-    if(e.key==='Escape'&&view!=='home'){go('home');return}
+    if(e.key==='Escape'&&view!=='home'){goBack();return}
     if(view==='home'){
       if(e.key==='ArrowDown'){e.preventDefault();moveCursor(ci+1)}
       else if(e.key==='ArrowUp'){e.preventDefault();moveCursor(ci-1)}
@@ -1189,6 +1269,299 @@ function bind(){
   syncPlayer();
 }
 
+/* ---------- игры: сапёр и косынка ---------- */
+let gameSel=null,mg=null,sg=null,mFlagMode=false,lastTap={k:'',t:0};
+const GAME_NAMES={mines:'Сапёр',sol:'Косынка'};
+const M_LEVELS={easy:{r:9,c:9,m:10,n:'Лёгкий'},mid:{r:12,c:12,m:25,n:'Средний'},hard:{r:16,c:16,m:40,n:'Сложный'}};
+const SUITS=['♠','♥','♦','♣'],RANKS=['','A','2','3','4','5','6','7','8','9','10','J','Q','K'];
+const fmtT=s=>Math.floor(s/60)+':'+String(s%60).padStart(2,'0');
+const shuffle=a=>{for(let k=a.length-1;k>0;k--){const j=Math.floor(Math.random()*(k+1));[a[k],a[j]]=[a[j],a[k]]}return a};
+
+function bestText(){
+  const m=Object.keys(M_LEVELS).map(k=>{const b=lsGet('best_mines_'+k);return b?M_LEVELS[k].n.toLowerCase()+' '+fmtT(+b):''}).filter(Boolean);
+  const s=lsGet('best_sol');
+  return{mines:m.length?'Рекорды: '+m.join(' · '):'Рекордов пока нет',sol:s?'Лучшее время: '+fmtT(+s):'Рекордов пока нет'};
+}
+function renderGames(){
+  const pick=!gameSel;
+  $('gPick').classList.toggle('hidden',!pick);
+  $('gMines').classList.toggle('hidden',gameSel!=='mines');
+  $('gSol').classList.toggle('hidden',gameSel!=='sol');
+  if(pick){
+    const b=bestText();
+    $('gBestM').textContent=(mg&&(mg.state==='play')?'Игра идёт · ':'')+b.mines;
+    $('gBestS').textContent=(sg&&(sg.state==='play')?'Игра идёт · ':'')+b.sol;
+  }else if(gameSel==='mines')renderMines();
+  else renderSol();
+}
+function openGame(g){
+  gameSel=g;
+  if(g==='mines'&&!mg)mNew(lsGet('mlvl')||'easy');
+  if(g==='sol'&&!sg)sNew();
+  renderHeader();renderGames();
+}
+function goBack(){
+  if(view==='games'&&gameSel){gameSel=null;renderHeader();renderGames();return}
+  go('home');
+}
+function tickGames(){
+  if(view!=='games')return;
+  if(gameSel==='mines'&&mg&&mg.state==='play'){mg.time=Math.floor((Date.now()-mg.t0)/1000);$('mTime').textContent=mg.time}
+  if(gameSel==='sol'&&sg&&sg.state==='play'){sg.time=Math.floor((Date.now()-sg.t0)/1000);$('sTime').textContent=fmtT(sg.time)}
+}
+
+/* ----- сапёр ----- */
+function mNew(lvl){
+  lvl=M_LEVELS[lvl]?lvl:'easy';lsSet('mlvl',lvl);
+  const L=M_LEVELS[lvl];
+  mg={lvl,r:L.r,c:L.c,m:L.m,cells:Array.from({length:L.r*L.c},()=>({mine:false,open:false,flag:false,n:0})),state:'ready',opened:0,flags:0,t0:0,time:0,hit:-1};
+}
+function mNb(i){
+  const{r,c}=mg,y=Math.floor(i/c),x=i%c,o=[];
+  for(let dy=-1;dy<=1;dy++)for(let dx=-1;dx<=1;dx++){
+    if(!dx&&!dy)continue;const yy=y+dy,xx=x+dx;
+    if(yy>=0&&yy<r&&xx>=0&&xx<c)o.push(yy*c+xx);
+  }
+  return o;
+}
+function mPlace(safe){      // первый клик и его соседи всегда безопасны
+  const ban=new Set([safe,...mNb(safe)]),pool=[];
+  mg.cells.forEach((_,i)=>{if(!ban.has(i))pool.push(i)});
+  shuffle(pool).slice(0,mg.m).forEach(i=>mg.cells[i].mine=true);
+  mg.cells.forEach((cl,i)=>cl.n=mNb(i).filter(j=>mg.cells[j].mine).length);
+}
+const mEnded=()=>mg.state==='won'||mg.state==='lost';
+function mOpen(i){
+  if(!mg||mEnded())return;
+  const cl=mg.cells[i];if(cl.open||cl.flag)return;
+  if(mg.state==='ready'){mPlace(i);mg.state='play';mg.t0=Date.now()}
+  if(cl.mine){mg.state='lost';mg.hit=i;mg.time=Math.floor((Date.now()-mg.t0)/1000);return}
+  const st=[i];
+  while(st.length){
+    const k=st.pop(),x=mg.cells[k];
+    if(x.open||x.flag)continue;
+    x.open=true;mg.opened++;
+    if(x.n===0)mNb(k).forEach(j=>{if(!mg.cells[j].open)st.push(j)});
+  }
+  if(mg.opened===mg.r*mg.c-mg.m)mWin();
+}
+function mWin(){
+  mg.state='won';mg.time=Math.max(1,Math.floor((Date.now()-mg.t0)/1000));
+  mg.cells.forEach(c=>{if(c.mine)c.flag=true});mg.flags=mg.m;
+  const k='best_mines_'+mg.lvl,b=+lsGet(k)||0;
+  if(!b||mg.time<b){lsSet(k,mg.time);mg.record=true}
+}
+function mFlag(i){
+  if(!mg||mEnded())return;
+  const cl=mg.cells[i];if(cl.open)return;
+  cl.flag=!cl.flag;mg.flags+=cl.flag?1:-1;
+}
+function mChord(i){         // нажатие на цифру открывает соседей, если флажков столько же
+  const cl=mg.cells[i];if(!cl.open||!cl.n||mEnded())return;
+  const nb=mNb(i);
+  if(nb.filter(j=>mg.cells[j].flag).length!==cl.n)return;
+  nb.forEach(j=>{if(!mg.cells[j].flag)mOpen(j)});
+}
+function mAct(i,kind){
+  if(kind==='flag')mFlag(i);
+  else if(mg.cells[i].open)mChord(i);
+  else mOpen(i);
+  renderMines();
+}
+function renderMines(){
+  const el=$('mBoard'),box=el.getBoundingClientRect?el.getBoundingClientRect():{width:0};
+  const w=Math.floor(box.width)||320,cs=Math.max(24,Math.min(40,Math.floor(w/mg.c)));
+  let h=`<div class="mgrid" style="grid-template-columns:repeat(${mg.c},${cs}px);--cs:${cs}px">`;
+  mg.cells.forEach((cl,i)=>{
+    let cls='mc',t='';
+    if(cl.open){cls+=' open';if(cl.n)t=`<span class="mn">${cl.n}</span>`}
+    else if(mg.state==='lost'&&cl.mine&&!cl.flag){cls+=i===mg.hit?' bomb boom':' bomb';t='◆'}
+    else if(cl.flag){cls+=' flag';t=mg.state==='lost'&&!cl.mine?'✕':'▲'}
+    h+=`<button class="${cls}" data-i="${i}" aria-label="Клетка ${Math.floor(i/mg.c)+1}, ${i%mg.c+1}">${t}</button>`;
+  });
+  el.innerHTML=h+'</div>';
+  $('mLeft').textContent=mg.m-mg.flags;
+  $('mTime').textContent=mg.time;
+  const msg={ready:'Нажмите на любую клетку',play:'',won:mg.record?'Победа! Новый рекорд':'Победа!',lost:'Мина! Попробуйте ещё раз'}[mg.state];
+  $('mMsg').textContent=msg;
+  $('mMode').textContent='Флажок: '+(mFlagMode?'вкл':'выкл');
+  $('mMode').setAttribute('aria-pressed',mFlagMode);
+  document.querySelectorAll('#mLevels [data-l]').forEach(b=>b.setAttribute('aria-pressed',b.dataset.l===mg.lvl));
+}
+
+/* ----- косынка ----- */
+const isRed=c=>c.s===1||c.s===2;
+const canTab=(card,pile)=>{const t=pile[pile.length-1];return !t?card.r===13:t.up&&isRed(card)!==isRed(t)&&card.r===t.r-1};
+const canFound=(card,f)=>{const t=f[f.length-1];return t?t.s===card.s&&card.r===t.r+1:card.r===1};
+function sNew(){
+  const d=[];for(let s=0;s<4;s++)for(let r=1;r<=13;r++)d.push({s,r,up:false});
+  shuffle(d);
+  const tab=[[],[],[],[],[],[],[]];
+  for(let p=0;p<7;p++)for(let q=0;q<=p;q++){const c=d.pop();c.up=q===p;tab[p].push(c)}
+  sg={stock:d,waste:[],found:[[],[],[],[]],tab,moves:0,t0:0,time:0,state:'ready',draw:+(lsGet('sdraw')||1)===3?3:1,hist:[],sel:null,busy:false};
+}
+const sSnap=()=>JSON.stringify({stock:sg.stock,waste:sg.waste,found:sg.found,tab:sg.tab,moves:sg.moves});
+function sPush(){sg.hist.push(sSnap());if(sg.hist.length>300)sg.hist.shift()}
+function sStart(){if(sg.state==='ready'){sg.state='play';sg.t0=Date.now()}}
+function sUndo(){
+  if(!sg||sg.busy||!sg.hist.length)return;
+  const o=JSON.parse(sg.hist.pop());Object.assign(sg,o);sg.sel=null;if(sg.state==='won')sg.state='play';
+}
+function sDraw(){
+  if(sg.busy||sg.state==='won')return;
+  if(!sg.stock.length&&!sg.waste.length)return;
+  sPush();sStart();
+  if(sg.stock.length){for(let k=0;k<sg.draw&&sg.stock.length;k++){const c=sg.stock.pop();c.up=true;sg.waste.push(c)}}
+  else{sg.stock=sg.waste.reverse();sg.stock.forEach(c=>c.up=false);sg.waste=[]}
+  sg.moves++;sg.sel=null;
+}
+const sCards=s=>!s?[]:s.src==='w'?sg.waste.slice(-1):sg.tab[s.p].slice(s.k);
+function sTake(s){
+  if(s.src==='w')return[sg.waste.pop()];
+  const p=sg.tab[s.p],m=p.splice(s.k),t=p[p.length-1];
+  if(t&&!t.up)t.up=true;
+  return m;
+}
+function sFoundIdx(card){
+  for(let i=0;i<4;i++){const f=sg.found[i];if(f.length&&f[f.length-1].s===card.s)return canFound(card,f)?i:-1}
+  return card.r===1?sg.found.findIndex(f=>!f.length):-1;
+}
+function sTryTab(s,pi){
+  const m=sCards(s);
+  if(!m.length||(s.src==='t'&&s.p===pi)||!canTab(m[0],sg.tab[pi]))return false;
+  sPush();sStart();sg.tab[pi].push(...sTake(s));sg.moves++;sg.sel=null;return true;
+}
+function sTryFound(s,fi){
+  const m=sCards(s);if(m.length!==1)return false;
+  const c=m[0],i=fi==null?sFoundIdx(c):fi;
+  if(i<0||!canFound(c,sg.found[i]))return false;
+  sPush();sStart();sg.found[i].push(...sTake(s));sg.moves++;sg.sel=null;sCheckWin();return true;
+}
+function sCheckWin(){
+  if(sg.found.reduce((a,f)=>a+f.length,0)!==52)return;
+  sg.state='won';sg.time=Math.max(1,Math.floor((Date.now()-sg.t0)/1000));
+  const b=+lsGet('best_sol')||0;if(!b||sg.time<b){lsSet('best_sol',sg.time);sg.record=true}
+}
+function sAutoStep(){       // переносит одну карту на основание, если можно
+  const cands=[{src:'w'},...sg.tab.map((p,i)=>({src:'t',p:i,k:p.length-1}))];
+  for(const s of cands){
+    const m=sCards(s);
+    if(m.length===1&&m[0].up){
+      const i=sFoundIdx(m[0]);
+      if(i>=0){sg.found[i].push(...sTake(s));sg.moves++;return true}
+    }
+  }
+  return false;
+}
+function sAuto(){
+  if(sg.busy||sg.state==='won')return;
+  sPush();sStart();sg.busy=true;sg.sel=null;
+  const step=()=>{
+    const moved=sAutoStep();sRender();
+    if(moved&&sg.found.reduce((a,f)=>a+f.length,0)<52)setTimeout(step,90);
+    else{sg.busy=false;if(!moved&&sg.hist.length&&sSnap()===sg.hist[sg.hist.length-1])sg.hist.pop();sCheckWin();sRender()}
+  };
+  step();
+}
+function sClick(el){
+  if(!sg||sg.busy||sg.state==='won')return;
+  const a=el.dataset.a;
+  if(a==='stock'){sDraw();sRender();return}
+  const key=a+(el.dataset.p||'')+'/'+(el.dataset.k||''),now=Date.now(),dbl=lastTap.k===key&&now-lastTap.t<380;
+  lastTap={k:key,t:now};
+  let src=null;
+  if(a==='waste'&&sg.waste.length)src={src:'w'};
+  if(a==='t'&&+el.dataset.k>=0){
+    const p=+el.dataset.p,k=+el.dataset.k,card=sg.tab[p][k];
+    if(card&&card.up)src={src:'t',p,k};
+  }
+  if(dbl&&src&&sTryFound(src,null)){sRender();return}
+  if(sg.sel){
+    let ok=false;
+    if(a==='t')ok=sTryTab(sg.sel,+el.dataset.p);
+    else if(a==='f')ok=sTryFound(sg.sel,+el.dataset.i);
+    if(ok){sRender();return}
+    if(src&&sg.sel.src===src.src&&sg.sel.p===src.p&&sg.sel.k===src.k){sg.sel=null;sRender();return}
+  }
+  sg.sel=src;sRender();
+}
+function cardHtml(c,y,w,h,data,sel){
+  const cls='card '+(c.up?'up':'down')+(c.up&&isRed(c)?' red':'')+(sel?' sel':'');
+  const inner=c.up?`<span class="cr">${RANKS[c.r]}${SUITS[c.s]}</span><span class="cb">${SUITS[c.s]}</span>`:'';
+  return `<button class="${cls}" style="top:${y}px;width:${w}px;height:${h}px" ${data} aria-label="${c.up?RANKS[c.r]+' '+SUITS[c.s]:'карта рубашкой'}">${inner}</button>`;
+}
+function renderSol(){
+  const el=$('sBoard'),box=el.getBoundingClientRect?el.getBoundingClientRect():{width:0};
+  const Wc=Math.floor(box.width)||340,gap=6,w=Math.max(34,Math.min(78,Math.floor((Wc-gap*6)/7))),h=Math.round(w*1.4);
+  const up=Math.round(h*.3),dn=Math.round(h*.15),sel=sg.sel;
+  const slot=(inner,data)=>`<div class="slot" style="width:${w}px;height:${h}px" ${data||''}>${inner}</div>`;
+  let top='';
+  top+=slot(sg.stock.length?cardHtml({up:false},0,w,h,'data-a="stock"')+`<span class="cnt">${sg.stock.length}</span>`:`<button class="slotbtn" data-a="stock" aria-label="Перевернуть колоду">↻</button>`);
+  const wc=sg.waste[sg.waste.length-1];
+  top+=slot(wc?cardHtml(wc,0,w,h,'data-a="waste"',sel&&sel.src==='w'):'');
+  top+='<div></div>';
+  for(let i=0;i<4;i++){
+    const f=sg.found[i],t=f[f.length-1];
+    top+=slot(t?cardHtml(t,0,w,h,`data-a="f" data-i="${i}"`):`<button class="slotbtn" data-a="f" data-i="${i}" aria-label="Основание">◇</button>`);
+  }
+  let tab='';
+  sg.tab.forEach((p,pi)=>{
+    let y=0,inner='';
+    if(!p.length)inner=`<button class="slotbtn" data-a="t" data-p="${pi}" data-k="-1" aria-label="Пустая стопка">K</button>`;
+    p.forEach((c,k)=>{
+      inner+=cardHtml(c,y,w,h,`data-a="t" data-p="${pi}" data-k="${k}"`,sel&&sel.src==='t'&&sel.p===pi&&k>=sel.k);
+      y+=c.up?up:dn;
+    });
+    const last=p.length?y-(p[p.length-1].up?up:dn):0;
+    tab+=`<div class="slot tabp" style="width:${w}px;height:${last+h}px">${inner}</div>`;
+  });
+  el.innerHTML=`<div class="sgrid" style="--cw:${w}px;grid-template-columns:repeat(7,${w}px)">${top}</div><div class="sgrid tabrow" style="--cw:${w}px;grid-template-columns:repeat(7,${w}px)">${tab}</div>`;
+  $('sMoves').textContent=sg.moves;$('sTime').textContent=fmtT(sg.time);
+  $('sDraw').textContent='Тянуть: '+sg.draw;
+  $('sUndo').disabled=!sg.hist.length||sg.busy;
+  $('sMsg').textContent=sg.state==='won'?'Победа! Ходов: '+sg.moves+(sg.record?' · новый рекорд':''):'';
+}
+
+/* ----- события ----- */
+function bindGames(){
+  $('gPick').addEventListener('click',e=>{const b=e.target.closest('[data-g]');if(b)openGame(b.dataset.g)});
+  $('mNew').addEventListener('click',()=>{mNew(mg?mg.lvl:'easy');renderMines()});
+  $('mMode').addEventListener('click',()=>{mFlagMode=!mFlagMode;renderMines()});
+  $('mLevels').addEventListener('click',e=>{const b=e.target.closest('[data-l]');if(b){mNew(b.dataset.l);renderMines()}});
+  const board=$('mBoard');let timer=null,idx=-1,long=false;
+  board.addEventListener('pointerdown',e=>{
+    const b=e.target.closest('.mc');if(!b||e.button!==0)return;
+    idx=+b.dataset.i;long=false;clearTimeout(timer);
+    timer=setTimeout(()=>{long=true;mAct(idx,'flag');try{navigator.vibrate&&navigator.vibrate(15)}catch(x){}},420);
+  });
+  board.addEventListener('pointerup',e=>{
+    clearTimeout(timer);
+    const b=e.target.closest('.mc');
+    if(long){long=false;idx=-1;return}
+    if(!b||+b.dataset.i!==idx){idx=-1;return}
+    const i=idx;idx=-1;mAct(i,mFlagMode&&!mg.cells[i].open?'flag':'tap');
+  });
+  ['pointercancel','pointerleave'].forEach(n=>board.addEventListener(n,()=>{clearTimeout(timer);idx=-1}));
+  board.addEventListener('contextmenu',e=>{
+    e.preventDefault();
+    if(long)return;
+    const b=e.target.closest('.mc');if(b)mAct(+b.dataset.i,'flag');
+  });
+  board.addEventListener('keydown',e=>{
+    const b=e.target.closest('.mc');if(!b)return;
+    if(e.key==='Enter'||e.key===' '){e.preventDefault();const i=+b.dataset.i;mAct(i,mFlagMode&&!mg.cells[i].open?'flag':'tap')}
+    else if(e.key==='f'||e.key==='F'){e.preventDefault();mAct(+b.dataset.i,'flag')}
+  });
+  $('sBoard').addEventListener('click',e=>{const b=e.target.closest('[data-a]');if(b)sClick(b);else if(sg&&sg.sel){sg.sel=null;sRender()}});
+  $('sNew').addEventListener('click',()=>{sNew();sRender()});
+  $('sUndo').addEventListener('click',()=>{sUndo();sRender()});
+  $('sAuto').addEventListener('click',sAuto);
+  $('sDraw').addEventListener('click',()=>{sg.draw=sg.draw===1?3:1;lsSet('sdraw',sg.draw);sRender()});
+  setInterval(tickGames,1000);
+}
+const sRender=renderSol;
+
+
 /* ---------- старт ---------- */
 async function boot(){
   setTheme(initialTheme());
@@ -1203,7 +1576,7 @@ async function boot(){
   const changes=detectChanges();
   show('home');
   if(changes.length)setTimeout(()=>{changes.forEach(toast);sysNotify(changes)},1000);
-  window.addEventListener('resize',()=>{if(view==='home')placeBar(true)});
+  window.addEventListener('resize',()=>{if(view==='home')placeBar(true);else if(view==='games'&&gameSel)renderGames()});
   setInterval(()=>{if(view==='schedule')renderList();else if(view==='home')renderDetail()},60000);
   setInterval(poll,300000);
 }
